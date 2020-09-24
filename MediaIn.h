@@ -5,28 +5,29 @@
 #ifndef HALFWAYLIVE_MEDIAIN_H
 #define HALFWAYLIVE_MEDIAIN_H
 
-
 #include <string>
 
 extern "C" {
 #include <libavformat/avformat.h>
 }
 
-class MediaIn {
-public:
-    MediaIn(const std::string &filename);
+class MediaIn
+{
+  public:
+    explicit MediaIn(const std::string& filename);
     virtual ~MediaIn();
     virtual bool open() = 0;
+    bool hasAudio() const;
+    bool hasVideo() const;
 
-protected:
+  protected:
     std::string _filename;
     AVFormatContext *_avFmtCtx;
 
-    bool hasAudio();
-    bool hasVideo();
-private:
+    int _audioStreamNo;
+    int _videoStreamNo;
 
+  private:
 };
 
-
-#endif //HALFWAYLIVE_MEDIAIN_H
+#endif  // HALFWAYLIVE_MEDIAIN_H

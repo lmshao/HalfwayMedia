@@ -5,8 +5,8 @@
 #ifndef HALFWAYLIVE_LIVESTREAMOUT_H
 #define HALFWAYLIVE_LIVESTREAMOUT_H
 
-
-class LiveStreamOut {
+#include "MediaOut.h"
+class LiveStreamOut : public MediaOut{
 
 };
 

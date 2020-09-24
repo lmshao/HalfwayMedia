@@ -12,13 +12,16 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
-class MediaFileIn : public MediaIn {
-public:
+class MediaFileIn : public MediaIn
+{
+  public:
     explicit MediaFileIn(const std::string &filename);
     ~MediaFileIn() override;
 
     bool open() override;
+
+  private:
+    void checkStream();
 };
 
-
-#endif //HALFWAYLIVE_MEDIAFILEIN_H
+#endif  // HALFWAYLIVE_MEDIAFILEIN_H

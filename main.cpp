@@ -4,7 +4,13 @@
 int main()
 {
     logger("Hello Halfway");
-    MediaIn *mediaIn = new MediaFileIn("../assets/Sample.mkv");
+//    std::string file = "../assets/Sample.mkv";
+    std::string file = "../assets/echo.aac";
+    MediaIn *mediaIn = new MediaFileIn(file);
     mediaIn->open();
+    if (mediaIn->hasAudio())
+        logger("has audio");
+    if (mediaIn->hasVideo())
+        logger("has video");
     return 0;
 }

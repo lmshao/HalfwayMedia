@@ -9,4 +9,6 @@
 
 void print(const char* fname, int line, const char* func, const char* fmt, ...);
 
+char *ff_err2str(int errRet);
+
 #endif //HALFWAYLIVE_UTILS_H

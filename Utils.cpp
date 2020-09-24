@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+extern "C" {
+#include <libavutil/error.h>
+}
 
 void print(const char* fname, int line, const char* func, const char* fmt, ...)
 {
@@ -19,4 +22,10 @@ void print(const char* fname, int line, const char* func, const char* fmt, ...)
     vprintf(fmt, ap);
     printf("\r\n");
     va_end(ap);
+}
+
+static char errBuff[500];
+char *ff_err2str(int errRet) {
+    av_strerror(errRet, (char*)(&errBuff), 500);
+    return errBuff;
 }
