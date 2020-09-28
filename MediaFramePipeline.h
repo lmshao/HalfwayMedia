@@ -7,9 +7,11 @@
 
 #include <cstdint>
 #include <list>
+#include <shared_mutex>
 #include <string>
 
-enum FrameFormat {
+enum FrameFormat
+{
     FRAME_FORMAT_UNKNOWN = 0,
 
     FRAME_FORMAT_I420 = 100,
@@ -175,25 +177,49 @@ inline bool isVideoFrame(const Frame &frame)
 
 class FrameDestination;
 
-class FrameSource
-{
-  public:
-    void addAudioDestination(FrameDestination *fd);
-    void removeAudioDestination(FrameDestination *fd);
+class FrameSource {
+public:
+    FrameSource() = default;
+    virtual ~FrameSource();
 
-    void addVideoDestination(FrameDestination *fd);
-    void removeVideoDestination(FrameDestination *fd);
+    void addAudioDestination(FrameDestination *);
+    void removeAudioDestination(FrameDestination *);
 
-  protected:
-    void deliverFrame(const Frame *f);
+    void addVideoDestination(FrameDestination *);
+    void removeVideoDestination(FrameDestination *);
 
-  private:
-    std::list<FrameDestination *> _audioDests;
-    std::list<FrameDestination *> _videoDests;
+protected:
+    void deliverFrame(const Frame &);
+
+private:
+    std::list<FrameDestination *> _audioDsts;
+    std::shared_mutex _audioDstsMutex;
+
+    std::list<FrameDestination *> _videoDsts;
+    std::shared_mutex _videoDstsMutex;
 };
 
-class FrameDestination
-{
+class FrameDestination {
+public:
+    FrameDestination() : _audioSrc(nullptr), _videoSrc(nullptr) {}
+    virtual ~FrameDestination() = default;
+
+    virtual void onFrame(const Frame &) = 0;
+
+    void setAudioSource(FrameSource *);
+    void unsetAudioSource();
+
+    void setVideoSource(FrameSource *);
+    void unsetVideoSource();
+
+    bool hasAudioSource() { return _audioSrc != nullptr; }
+    bool hasVideoSource() { return _videoSrc != nullptr; }
+
+private:
+    FrameSource *_audioSrc;
+    std::shared_mutex _audioSrcMutex;
+    FrameSource *_videoSrc;
+    std::shared_mutex _videoSrcMutex;
 };
 
 #endif  // HALFWAYLIVE_MEDIAFRAMEPIPELINE_H

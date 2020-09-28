@@ -6,9 +6,7 @@
 #define HALFWAYLIVE_LIVESTREAMOUT_H
 
 #include "MediaOut.h"
-class LiveStreamOut : public MediaOut{
-
+class LiveStreamOut : public MediaOut {
 };
 
-
-#endif //HALFWAYLIVE_LIVESTREAMOUT_H
+#endif  // HALFWAYLIVE_LIVESTREAMOUT_H

@@ -3,23 +3,27 @@
 //
 
 #include "MediaIn.h"
+#include "Utils.h"
 
 MediaIn::MediaIn(const std::string &filename)
-  : _filename(filename), _avFmtCtx(nullptr), _audioStreamNo(-1), _videoStreamNo(-1)
+  : _filename(filename), _avFmtCtx(nullptr), _audioStreamIndex(-1), _videoStreamIndex(-1)
 {
 }
 
 MediaIn::~MediaIn()
 {
     avformat_close_input(&_avFmtCtx);
+    logger("~");
 }
 
 bool MediaIn::hasAudio() const
 {
-    return _audioStreamNo > -1;
+    return _audioStreamIndex > -1;
 }
 
 bool MediaIn::hasVideo() const
 {
-    return _videoStreamNo > -1;
+    return _videoStreamIndex > -1;
 }
+
+void MediaIn::start() {}

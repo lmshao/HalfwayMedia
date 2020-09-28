@@ -1,9 +1,9 @@
 CC = g++
 LD = g++
 
-CFLAGS = -g -Wall -O2
+CFLAGS = -g -Wall -O2 -std=c++17
 
-LDFLAGS = -lavcodec -lavdevice -lavfilter -lavformat -lavutil -lswscale -lswresample
+LDFLAGS = -lavcodec -lavdevice -lavfilter -lavformat -lavutil -lswscale -lswresample -lpthread
 
 SRC = $(wildcard *.cpp)
 OBJ = $(patsubst %cpp, %o, $(SRC))

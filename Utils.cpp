@@ -10,11 +10,11 @@ extern "C" {
 #include <libavutil/error.h>
 }
 
-void print(const char* fname, int line, const char* func, const char* fmt, ...)
+void print(const char *fname, int line, const char *func, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    const char* ptr = strrchr(fname, '/');
+    const char *ptr = strrchr(fname, '/');
     if (ptr) {
         fname = ptr + 1;
     }
@@ -24,8 +24,9 @@ void print(const char* fname, int line, const char* func, const char* fmt, ...)
     va_end(ap);
 }
 
-static char errBuff[500];
-char *ff_err2str(int errRet) {
-    av_strerror(errRet, (char*)(&errBuff), 500);
+char *ff_err2str(int errRet)
+{
+    static char errBuff[500];
+    av_strerror(errRet, (char *)(&errBuff), 500);
     return errBuff;
 }

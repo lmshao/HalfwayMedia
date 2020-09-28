@@ -5,10 +5,10 @@
 #ifndef HALFWAYLIVE_UTILS_H
 #define HALFWAYLIVE_UTILS_H
 
-#define logger(fmt, args...)  print(__FILE__, __LINE__, __FUNCTION__, fmt, ##args)
+#define logger(fmt, args...) print(__FILE__, __LINE__, __FUNCTION__, fmt, ##args)
 
-void print(const char* fname, int line, const char* func, const char* fmt, ...);
+void print(const char *fname, int line, const char *func, const char *fmt, ...);
 
 char *ff_err2str(int errRet);
 
-#endif //HALFWAYLIVE_UTILS_H
+#endif  // HALFWAYLIVE_UTILS_H

@@ -14,8 +14,18 @@ public:
     ~MediaFileOut() override;
 
 protected:
+    bool isAudioFormatSupported(FrameFormat format) override;
+
+    bool isVideoFormatSupported(FrameFormat format) override;
+
+    const char *getFormatName(std::string &url) override;
+
+    uint32_t getKeyFrameInterval(void) override;
+
+    uint32_t getReconnectCount(void) override;
+
+protected:
     [[noreturn]] void sendLoop() override;
 };
 
-
-#endif //HALFWAYLIVE_MEDIAFILEOUT_H
+#endif  // HALFWAYLIVE_MEDIAFILEOUT_H
