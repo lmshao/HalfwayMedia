@@ -3,6 +3,10 @@
 //
 
 #include "MediaFileIn.h"
+extern "C" {
+#include <libavutil/time.h>
+}
+#include <unistd.h>
 
 static inline int64_t timeRescale(uint32_t time, AVRational in, AVRational out)
 {
@@ -12,6 +16,7 @@ static inline int64_t timeRescale(uint32_t time, AVRational in, AVRational out)
 MediaFileIn::MediaFileIn(const std::string &filename) : MediaIn(filename), _running(false)
 {
     _running = true;
+    _timestampOffset = 0;
 }
 
 MediaFileIn::~MediaFileIn()
@@ -106,6 +111,7 @@ bool MediaFileIn::checkStream()
             _audioTimeBase.num = 1;
             _audioTimeBase.den = audio_st->codecpar->sample_rate;
             _audioSampleRate = audio_st->codecpar->sample_rate;
+            _audioChannels = audio_st->codecpar->channels;
         }
     }
 
@@ -159,10 +165,77 @@ void MediaFileIn::deliverVideoFrame(AVPacket *pkt)
     frame.payload = pkt->data;
     frame.length = pkt->size;
     frame.timeStamp = timeRescale(pkt->dts, _msTimeBase, _videoTimeBase);
+    frame.additionalInfo.video.width = _videoWidth;
+    frame.additionalInfo.video.height = _videoHeight;
+    frame.additionalInfo.video.isKeyFrame = (pkt->flags & AV_PKT_FLAG_KEY);
+    deliverFrame(frame);
+    logger("deliver video frame, timestamp %ld(%ld), size %4d, %s",
+           timeRescale(frame.timeStamp, _videoTimeBase, _msTimeBase), pkt->dts, frame.length,
+           (pkt->flags & AV_PKT_FLAG_KEY) ? "key" : "non-key");
 }
 
-void MediaFileIn::deliverAudioFrame(AVPacket *pkt) {}
+void MediaFileIn::deliverAudioFrame(AVPacket *pkt)
+{
+    Frame frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.format = _audioFormat;
+    frame.payload = pkt->data;
+    frame.length = pkt->size;
+    frame.timeStamp = timeRescale(pkt->dts, _msTimeBase, _audioTimeBase);
+    frame.additionalInfo.audio.isRtpPacket = 0;
+    frame.additionalInfo.audio.sampleRate = _audioSampleRate;
+    frame.additionalInfo.audio.channels = _audioChannels;
+    frame.additionalInfo.audio.nbSamples = frame.length / frame.additionalInfo.audio.channels / 2;
+    deliverFrame(frame);
+    logger("deliver audio frame, timestamp %ld(%ld), size %4d",
+           timeRescale(frame.timeStamp, _audioTimeBase, _msTimeBase), pkt->dts, frame.length);
+}
 
 void MediaFileIn::receiveLoop() {}
 
-void MediaFileIn::start() {}
+void MediaFileIn::start() {
+    logger("");
+    memset(&_avPacket, 0, sizeof(_avPacket));
+    int64_t start_time = av_gettime();
+    while (_running) {
+        logger("");
+        av_init_packet(&_avPacket);
+        int ret = av_read_frame(_avFmtCtx, &_avPacket);
+        if (ret < 0){
+            logger("Error read frame, %s %d", ff_err2str(ret), ret);
+            break;
+        }
+        logger("");
+        if (_avPacket.stream_index == _videoStreamIndex) { // pakcet is video
+            AVStream *video_st = _avFmtCtx->streams[_videoStreamIndex];
+            _avPacket.dts = timeRescale(_avPacket.dts, video_st->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket.pts = timeRescale(_avPacket.pts, video_st->time_base, _msTimeBase) + _timestampOffset;
+            logger("Receive video frame packet, dts %ld, size %d" , _avPacket.dts, _avPacket.size);
+            deliverVideoFrame(&_avPacket);
+
+            AVRational time_base_q = { 1, AV_TIME_BASE };
+            int64_t pts_time = av_rescale_q(_avPacket.pts, video_st->time_base, time_base_q);
+            int64_t now_time = av_gettime() - start_time;
+            if (pts_time > now_time)
+                av_usleep(pts_time - now_time);
+            logger("sleep %ld", (pts_time - now_time));
+
+        } else if (_avPacket.stream_index == _audioStreamIndex) {
+            AVStream *audio_st = _avFmtCtx->streams[_audioStreamIndex];
+            _avPacket.dts = timeRescale(_avPacket.dts, audio_st->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket.pts = timeRescale(_avPacket.pts, audio_st->time_base, _msTimeBase) + _timestampOffset;
+            deliverAudioFrame(&_avPacket);
+
+            AVRational time_base_q = { 1, AV_TIME_BASE };
+            int64_t pts_time = av_rescale_q(_avPacket.pts, audio_st->time_base, time_base_q);
+            int64_t now_time = av_gettime() - start_time;
+            if (pts_time > now_time)
+                av_usleep(pts_time - now_time);
+
+            logger("sleep %ld", (pts_time - now_time));
+        }
+        _lastTimstamp = _avPacket.dts;
+        av_packet_unref(&_avPacket);
+    }
+//    logger("Thread exited!");
+}

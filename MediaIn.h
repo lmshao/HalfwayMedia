@@ -29,6 +29,7 @@ public:
 protected:
     std::string _filename;
     AVFormatContext *_avFmtCtx;
+    AVPacket _avPacket;
 
     int _audioStreamIndex;
     FrameFormat _audioFormat;

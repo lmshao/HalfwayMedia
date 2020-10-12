@@ -34,6 +34,8 @@ private:
     AVRational _videoTimeBase;
     AVRational _audioTimeBase;
     bool _running;
+    int64_t _timestampOffset;
+    int64_t _lastTimstamp;
 };
 
 #endif  // HALFWAYLIVE_MEDIAFILEIN_H

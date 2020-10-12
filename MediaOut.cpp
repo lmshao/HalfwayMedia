@@ -126,14 +126,16 @@ void MediaFrameQueue::cancel()
     _cond.notify_all();
 }
 
+
 MediaOut::MediaOut(const std::string &url, bool hasAudio, bool hasVideo)
-  : _url(url), _hasAudio(hasAudio), _hasVideo(hasVideo), _avFmtCtx(nullptr)
+  : _filename(url), _hasAudio(hasAudio), _hasVideo(hasVideo), _avFmtCtx(nullptr)
 {
-    logger("url %s, audio %d, video %d", _url.c_str(), _hasAudio, _hasVideo);
+    logger("url %s, audio %d, video %d", _filename.c_str(), _hasAudio, _hasVideo);
     if (!_hasAudio && !_hasVideo) {
         logger("Audio/Video not enabled");
         return;
     }
+    _status = Context_INITIALIZING;
     _thread = std::thread(&MediaOut::sendLoop, this);
 }
 
@@ -145,6 +147,7 @@ MediaOut::~MediaOut()
 void MediaOut::onFrame(const Frame &frame)
 {
     if (isAudioFrame(frame)) {
+        logger("recv one audio frame");
         if (!_hasAudio) {
             logger("Audio is not enabled");
             return;
@@ -180,6 +183,7 @@ void MediaOut::onFrame(const Frame &frame)
 
         _frameQueue.pushFrame(frame);
     } else if (isVideoFrame(frame)) {
+        logger("recv one video frame");
         if (!_hasVideo) {
             logger("Video is not enabled");
             return;
@@ -219,7 +223,32 @@ void MediaOut::onFrame(const Frame &frame)
 
 void MediaOut::close()
 {
-    logger("Close %s", _url.c_str());
+    logger("Close %s", _filename.c_str());
     _frameQueue.cancel();
     _thread.join();
+}
+
+AVCodecID MediaOut::frameFormat2AVCodecID(int frameFormat)
+{
+    switch (frameFormat) {
+        case FRAME_FORMAT_VP8:
+            return AV_CODEC_ID_VP8;
+        case FRAME_FORMAT_VP9:
+            return AV_CODEC_ID_VP9;
+        case FRAME_FORMAT_H264:
+            return AV_CODEC_ID_H264;
+        case FRAME_FORMAT_H265:
+            return AV_CODEC_ID_H265;
+        case FRAME_FORMAT_PCMU:
+            return AV_CODEC_ID_PCM_MULAW;
+        case FRAME_FORMAT_PCMA:
+            return AV_CODEC_ID_PCM_ALAW;
+        case FRAME_FORMAT_OPUS:
+            return AV_CODEC_ID_OPUS;
+        case FRAME_FORMAT_AAC:
+        case FRAME_FORMAT_AAC_48000_2:
+            return AV_CODEC_ID_AAC;
+        default:
+            return AV_CODEC_ID_NONE;
+    }
 }

@@ -46,6 +46,13 @@ private:
 
 class MediaOut : public FrameDestination {
 public:
+    enum Status {
+        Context_CLOSED = -1,
+        Context_EMPTY = 0,
+        Context_INITIALIZING = 1,
+        Context_READY = 2
+    };
+
     explicit MediaOut(const std::string &url, bool hasAudio, bool hasVideo);
     virtual ~MediaOut();
     virtual void onFrame(const Frame &frame);
@@ -59,10 +66,13 @@ protected:
 
     virtual void sendLoop() = 0;
 
+    AVCodecID frameFormat2AVCodecID(int frameFormat);
+
     void close();
 
-private:
-    std::string _url;
+    Status _status;
+
+    std::string _filename;
     bool _hasAudio;
     bool _hasVideo;
 
@@ -73,6 +83,7 @@ private:
     uint32_t _width;
     uint32_t _height;
 
+    std::shared_ptr<MediaFrame> _videoKeyFrame;
     MediaFrameQueue _frameQueue;
 
     AVFormatContext *_avFmtCtx;

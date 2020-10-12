@@ -25,5 +25,3 @@ bool MediaIn::hasVideo() const
 {
     return _videoStreamIndex > -1;
 }
-
-void MediaIn::start() {}

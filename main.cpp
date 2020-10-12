@@ -64,6 +64,7 @@ int main(int argc, char **argv)
             break;
     }
 
+    mediaIn->open();
     switch (guessProtocol(out)) {
         case FILE_MODE:
             mediaOut.reset(new MediaFileOut(out, mediaIn->hasAudio(), mediaIn->hasVideo()));
@@ -78,7 +79,7 @@ int main(int argc, char **argv)
     }
     mediaIn->addAudioDestination(mediaOut.get());
     mediaIn->addVideoDestination(mediaOut.get());
-    mediaIn->open();
-
+    mediaIn->start();
+    sleep(1000);
     return 0;
 }
