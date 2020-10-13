@@ -24,3 +24,8 @@ $ make
 4|文件|RTP|×
 ...|...|...|...
 
+```
+MediaFileIn  --+                                                                      +-- MediaFileOut
+               +-- MediaIn --  FrameSource -- Queue -- FrameDestination -- MediaOut --+
+LiveStreamIn --+                                                                      +-- LiveStreamOut
+```

@@ -46,7 +46,8 @@ private:
 
 class MediaOut : public FrameDestination {
 public:
-    enum Status {
+    enum Status
+    {
         Context_CLOSED = -1,
         Context_EMPTY = 0,
         Context_INITIALIZING = 1,
@@ -64,12 +65,21 @@ protected:
     virtual uint32_t getKeyFrameInterval(void) = 0;
     virtual uint32_t getReconnectCount(void) = 0;
 
-    virtual void sendLoop() = 0;
+    bool open();
 
-    AVCodecID frameFormat2AVCodecID(int frameFormat);
+    bool addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t channels);
+    bool addVideoStream(FrameFormat format, uint32_t width, uint32_t height);
+
+    bool writeHeader();
+    bool writeFrame(AVStream *stream, std::shared_ptr<MediaFrame> mediaFrame);
+
+    void sendLoop();
+
+    static AVCodecID frameFormat2AVCodecID(int frameFormat);
 
     void close();
 
+private:
     Status _status;
 
     std::string _filename;

@@ -130,8 +130,8 @@ bool MediaFileIn::checkStream()
                 break;
             case AV_CODEC_ID_H264:
                 _videoFormat = FRAME_FORMAT_H264;
-                logger("H264 profile: %s", avcodec_profile_name(video_st->codecpar->codec_id,
-                                                                video_st->codecpar->profile));
+                logger("H264 profile: %s",
+                       avcodec_profile_name(video_st->codecpar->codec_id, video_st->codecpar->profile));
                 break;
             case AV_CODEC_ID_H265:
                 _videoFormat = FRAME_FORMAT_H265;
@@ -169,9 +169,9 @@ void MediaFileIn::deliverVideoFrame(AVPacket *pkt)
     frame.additionalInfo.video.height = _videoHeight;
     frame.additionalInfo.video.isKeyFrame = (pkt->flags & AV_PKT_FLAG_KEY);
     deliverFrame(frame);
-    logger("deliver video frame, timestamp %ld(%ld), size %4d, %s",
+    logger("deliver video frame, timestamp %ld(%ld), size %4d, %s %s",
            timeRescale(frame.timeStamp, _videoTimeBase, _msTimeBase), pkt->dts, frame.length,
-           (pkt->flags & AV_PKT_FLAG_KEY) ? "key" : "non-key");
+           (pkt->flags & AV_PKT_FLAG_KEY) ? "key" : "non-key", getFormatStr(frame.format));
 }
 
 void MediaFileIn::deliverAudioFrame(AVPacket *pkt)
@@ -191,9 +191,8 @@ void MediaFileIn::deliverAudioFrame(AVPacket *pkt)
            timeRescale(frame.timeStamp, _audioTimeBase, _msTimeBase), pkt->dts, frame.length);
 }
 
-void MediaFileIn::receiveLoop() {}
-
-void MediaFileIn::start() {
+void MediaFileIn::start()
+{
     logger("");
     memset(&_avPacket, 0, sizeof(_avPacket));
     int64_t start_time = av_gettime();
@@ -201,16 +200,16 @@ void MediaFileIn::start() {
         logger("");
         av_init_packet(&_avPacket);
         int ret = av_read_frame(_avFmtCtx, &_avPacket);
-        if (ret < 0){
+        if (ret < 0) {
             logger("Error read frame, %s %d", ff_err2str(ret), ret);
             break;
         }
         logger("");
-        if (_avPacket.stream_index == _videoStreamIndex) { // pakcet is video
+        if (_avPacket.stream_index == _videoStreamIndex) {  // pakcet is video
             AVStream *video_st = _avFmtCtx->streams[_videoStreamIndex];
             _avPacket.dts = timeRescale(_avPacket.dts, video_st->time_base, _msTimeBase) + _timestampOffset;
             _avPacket.pts = timeRescale(_avPacket.pts, video_st->time_base, _msTimeBase) + _timestampOffset;
-            logger("Receive video frame packet, dts %ld, size %d" , _avPacket.dts, _avPacket.size);
+            logger("Get video frame packet, dts %ld, size %d", _avPacket.dts, _avPacket.size);
             deliverVideoFrame(&_avPacket);
 
             AVRational time_base_q = { 1, AV_TIME_BASE };
@@ -237,5 +236,8 @@ void MediaFileIn::start() {
         _lastTimstamp = _avPacket.dts;
         av_packet_unref(&_avPacket);
     }
-//    logger("Thread exited!");
+    logger("Thread exited!");
+    sleep(200);
+    logger("Thread exited!");
+
 }

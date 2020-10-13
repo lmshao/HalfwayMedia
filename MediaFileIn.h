@@ -24,7 +24,6 @@ public:
 
 private:
     bool checkStream();
-    void receiveLoop();
 
 public:
     void start() override;

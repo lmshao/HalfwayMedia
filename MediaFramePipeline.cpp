@@ -41,7 +41,7 @@ void FrameSource::removeAudioDestination(FrameDestination *dst)
 void FrameSource::addVideoDestination(FrameDestination *dst)
 {
     std::unique_lock<std::shared_mutex> lock(_videoDstsMutex);
-    _audioDsts.push_back(dst);
+    _videoDsts.push_back(dst);
     lock.unlock();
     dst->setVideoSource(this);
 }
@@ -57,13 +57,17 @@ void FrameSource::removeVideoDestination(FrameDestination *dst)
 void FrameSource::deliverFrame(const Frame &frame)
 {
     if (isAudioFrame(frame)) {
+        logger("deliverFrame audio");
         std::shared_lock<std::shared_mutex> lock(_audioDstsMutex);
         for (auto &_audioDst : _audioDsts) {
             _audioDst->onFrame(frame);
         }
     } else if (isVideoFrame(frame)) {
+        logger("deliverFrame video");
         std::shared_lock<std::shared_mutex> lock(_videoDstsMutex);
+        logger("_videoDsts no. = %d", _videoDsts.size());
         for (auto &_videoDst : _videoDsts) {
+            logger("~~");
             _videoDst->onFrame(frame);
         }
     } else {

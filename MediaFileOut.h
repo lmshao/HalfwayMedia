@@ -20,20 +20,9 @@ protected:
 
     const char *getFormatName(std::string &url) override;
 
-    uint32_t getKeyFrameInterval(void) override;
+    uint32_t getKeyFrameInterval() override;
 
-    uint32_t getReconnectCount(void) override;
-
-protected:
-    bool open();
-    bool addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t channels);
-    bool addVideoStream(FrameFormat format, uint32_t width, uint32_t height);
-
-    bool writeHeader();
-    bool writeFrame(AVStream *stream, std::shared_ptr<MediaFrame> mediaFrame);
-
-    void sendLoop() override;
-
+    uint32_t getReconnectCount() override;
 };
 
 #endif  // HALFWAYLIVE_MEDIAFILEOUT_H
