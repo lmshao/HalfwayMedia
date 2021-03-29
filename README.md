@@ -13,7 +13,7 @@ $ wget http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-2.0.1.
 $ tar zxvf fdk-aac-2.0.1.tar.gz
 $ cd fdk-aac-2.0.1
 $ ./configure --enable-shared --disable-static
-$ make install
+$ make -j8 && make install
 ```
 
 ### libx264
@@ -23,14 +23,23 @@ $ wget https://code.videolan.org/videolan/x264/-/archive/master/x264-master.tar.
 $ tar jxvf x264-master.tar.bz2
 $ cd x264-master
 $ ./configure --enable-shared
-$ make install
+$ make -j8 && make install
+```
+
+### libx265
+```sh
+$ wget http://ftp.videolan.org/pub/videolan/x265/x265_3.2.tar.gz
+$ tar zxvf x265_3.2.tar.gz
+$ cd x265_3.2/build/linux
+$ ./make-Makefiles.bash
+$ make -j8 && make install
 ```
 
 ### FFmpeg
-Download FFmpeg version 4.0 from https://github.com/FFmpeg/FFmpeg
+Download FFmpeg version 4.0 from [https://github.com/FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg)
 ```sh
-$ ./configure --enable-shared --disable-static --enable-gpl --enable-libx264  --enable-nonfree --enable-libfdk-aac
-$ make install
+$ ./configure --enable-shared --disable-static --enable-gpl --enable-libx264  --enable-libx265 --enable-nonfree --enable-libfdk-aac
+$ make -j8 && make install
 or
 sudo apt install libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libavresample-dev libswresample-dev libswscale-dev
 ```
