@@ -9,14 +9,26 @@
 ### libfdk_aac
 
 ```sh
-$ wget http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-2.0.1.tar.gz/download
+$ wget http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-2.0.1.tar.gz/download -O fdk-aac-2.0.1.tar.gz
+$ tar zxvf fdk-aac-2.0.1.tar.gz
+$ cd fdk-aac-2.0.1
 $ ./configure --enable-shared --disable-static
 $ make install
 ```
 
-### FFmpeg
+### libx264
+
 ```sh
-# Download FFmpeg version 4.0 from https://github.com/FFmpeg/FFmpeg
+$ wget https://code.videolan.org/videolan/x264/-/archive/master/x264-master.tar.bz2
+$ tar jxvf x264-master.tar.bz2
+$ cd x264-master
+$ ./configure --enable-shared
+$ make install
+```
+
+### FFmpeg
+Download FFmpeg version 4.0 from https://github.com/FFmpeg/FFmpeg
+```sh
 $ ./configure --enable-shared --disable-static --enable-gpl --enable-libx264  --enable-nonfree --enable-libfdk-aac
 $ make install
 or
