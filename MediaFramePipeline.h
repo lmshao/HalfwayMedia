@@ -10,8 +10,7 @@
 #include <shared_mutex>
 #include <string>
 
-enum FrameFormat
-{
+enum FrameFormat {
     FRAME_FORMAT_UNKNOWN = 0,
 
     FRAME_FORMAT_I420 = 100,
@@ -39,6 +38,8 @@ enum FrameFormat
 
     FRAME_FORMAT_AC3,
     FRAME_FORMAT_NELLYMOSER,
+
+    FRAME_FORMAT_MP3,
 };
 
 struct VideoFrameSpecificInfo {
@@ -152,6 +153,8 @@ inline const char *getFormatStr(const FrameFormat &format)
             return "AC3";
         case FRAME_FORMAT_NELLYMOSER:
             return "NELLYMOSER";
+        case FRAME_FORMAT_MP3:
+            return "MP3";
         default:
             return "INVALID";
     }
@@ -165,20 +168,19 @@ inline bool isAudioFrame(const Frame &frame)
            frame.format == FRAME_FORMAT_ILBC || frame.format == FRAME_FORMAT_G722_16000_1 ||
            frame.format == FRAME_FORMAT_G722_16000_2 || frame.format == FRAME_FORMAT_AAC ||
            frame.format == FRAME_FORMAT_AAC_48000_2 || frame.format == FRAME_FORMAT_AC3 ||
-           frame.format == FRAME_FORMAT_NELLYMOSER;
+           frame.format == FRAME_FORMAT_NELLYMOSER || frame.format == FRAME_FORMAT_MP3;
 }
 
 inline bool isVideoFrame(const Frame &frame)
 {
-    return frame.format == FRAME_FORMAT_I420 || frame.format == FRAME_FORMAT_MSDK ||
-           frame.format == FRAME_FORMAT_VP8 || frame.format == FRAME_FORMAT_VP9 ||
-           frame.format == FRAME_FORMAT_H264 || frame.format == FRAME_FORMAT_H265;
+    return frame.format == FRAME_FORMAT_I420 || frame.format == FRAME_FORMAT_MSDK || frame.format == FRAME_FORMAT_VP8 ||
+           frame.format == FRAME_FORMAT_VP9 || frame.format == FRAME_FORMAT_H264 || frame.format == FRAME_FORMAT_H265;
 }
 
 class FrameDestination;
 
 class FrameSource {
-public:
+  public:
     FrameSource() = default;
     virtual ~FrameSource();
 
@@ -188,10 +190,10 @@ public:
     void addVideoDestination(FrameDestination *);
     void removeVideoDestination(FrameDestination *);
 
-protected:
+  protected:
     void deliverFrame(const Frame &);
 
-private:
+  private:
     std::list<FrameDestination *> _audioDsts;
     std::shared_mutex _audioDstsMutex;
 
@@ -200,7 +202,7 @@ private:
 };
 
 class FrameDestination {
-public:
+  public:
     FrameDestination() : _audioSrc(nullptr), _videoSrc(nullptr) {}
     virtual ~FrameDestination() = default;
 
@@ -215,7 +217,7 @@ public:
     bool hasAudioSource() { return _audioSrc != nullptr; }
     bool hasVideoSource() { return _videoSrc != nullptr; }
 
-private:
+  private:
     FrameSource *_audioSrc;
     std::shared_mutex _audioSrcMutex;
     FrameSource *_videoSrc;

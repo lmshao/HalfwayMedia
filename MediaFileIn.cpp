@@ -7,6 +7,7 @@ extern "C" {
 #include <libavutil/time.h>
 }
 #include <unistd.h>
+#include <assert.h>
 
 static inline int64_t timeRescale(uint32_t time, AVRational in, AVRational out)
 {
@@ -26,9 +27,9 @@ MediaFileIn::~MediaFileIn()
 
 bool MediaFileIn::open()
 {
-    int ret = avformat_open_input(&_avFmtCtx, _filename.c_str(), nullptr, nullptr);
+    int ret = avformat_open_input(&_avFmtCtx, _url.c_str(), nullptr, nullptr);
     if (ret != 0) {
-        logger("Failed to open input file '%s': %s", _filename.c_str(), ff_err2str(ret));
+        logger("Failed to open input file '%s': %s", _url.c_str(), ff_err2str(ret));
         return false;
     }
 
@@ -44,7 +45,7 @@ bool MediaFileIn::open()
     }
 
     logger("Dump format");
-    av_dump_format(_avFmtCtx, 0, _filename.c_str(), 0);
+    av_dump_format(_avFmtCtx, 0, _url.c_str(), 0);
 
     return checkStream();
 }
@@ -137,7 +138,7 @@ bool MediaFileIn::checkStream()
                 _videoFormat = FRAME_FORMAT_H265;
                 break;
             default:
-                logger("Unsupported audio codec");
+                logger("Unsupported video codec");
                 break;
         }
 
@@ -164,10 +165,12 @@ void MediaFileIn::deliverVideoFrame(AVPacket *pkt)
     frame.format = _videoFormat;
     frame.payload = pkt->data;
     frame.length = pkt->size;
-    frame.timeStamp = timeRescale(pkt->dts, _msTimeBase, _videoTimeBase);
+    frame.timeStamp = 0;  // timeRescale(pkt->dts, _msTimeBase, _videoTimeBase);
     frame.additionalInfo.video.width = _videoWidth;
     frame.additionalInfo.video.height = _videoHeight;
-    frame.additionalInfo.video.isKeyFrame = (pkt->flags & AV_PKT_FLAG_KEY);
+    //    frame.additionalInfo.video.isKeyFrame = (pkt->flags & AV_PKT_FLAG_KEY);
+    frame.additionalInfo.video.isKeyFrame = true;
+
     deliverFrame(frame);
     logger("deliver video frame, timestamp %ld(%ld), size %4d, %s %s",
            timeRescale(frame.timeStamp, _videoTimeBase, _msTimeBase), pkt->dts, frame.length,
@@ -195,49 +198,106 @@ void MediaFileIn::start()
 {
     logger("");
     memset(&_avPacket, 0, sizeof(_avPacket));
+
+    AVStream *video_st = _avFmtCtx->streams[_videoStreamIndex];
+    AVRational time_base_q = { 1, AV_TIME_BASE };
     int64_t start_time = av_gettime();
-    while (_running) {
-        logger("");
-        av_init_packet(&_avPacket);
-        int ret = av_read_frame(_avFmtCtx, &_avPacket);
-        if (ret < 0) {
-            logger("Error read frame, %s %d", ff_err2str(ret), ret);
-            break;
-        }
-        logger("");
+    int64_t pts_time;
+    int64_t now_time;
+
+    av_init_packet(&_avPacket);
+    _avPacket.data = nullptr;
+    _avPacket.size = 0;
+
+    AVPacket spsPacket, ppsPacket, tmpPacket;
+    int cout = 0;
+
+    //    FILE *fp;
+    //    fp = fopen("1.h264", "wb");
+
+    uint8_t startCode[4] = { 0x00, 0x00, 0x00, 0x01 };
+
+    bool sendSpsPps = false;
+
+    while (_running && av_read_frame(_avFmtCtx, &_avPacket) == 0) {
+        logger("\n");
         if (_avPacket.stream_index == _videoStreamIndex) {  // pakcet is video
-            AVStream *video_st = _avFmtCtx->streams[_videoStreamIndex];
-            _avPacket.dts = timeRescale(_avPacket.dts, video_st->time_base, _msTimeBase) + _timestampOffset;
-            _avPacket.pts = timeRescale(_avPacket.pts, video_st->time_base, _msTimeBase) + _timestampOffset;
             logger("Get video frame packet, dts %ld, size %d", _avPacket.dts, _avPacket.size);
-            deliverVideoFrame(&_avPacket);
 
-            AVRational time_base_q = { 1, AV_TIME_BASE };
-            int64_t pts_time = av_rescale_q(_avPacket.pts, video_st->time_base, time_base_q);
-            int64_t now_time = av_gettime() - start_time;
-            if (pts_time > now_time)
+            if (!sendSpsPps) {
+                int spsLength = 0;
+                int ppsLength = 0;
+
+                uint8_t *ex = _avFmtCtx->streams[_videoStreamIndex]->codecpar->extradata;
+                spsLength = (ex[6] << 8) | ex[7];
+                ppsLength = (ex[8 + spsLength + 1] << 8) | ex[8 + spsLength + 2];
+
+                av_new_packet(&spsPacket, spsLength + 4);
+                av_new_packet(&ppsPacket, ppsLength + 4);
+
+                memcpy(spsPacket.data, startCode, 4);
+                memcpy(spsPacket.data + 4, ex + 8, spsLength);
+                deliverVideoFrame(&spsPacket);
+
+                //                fwrite(startCode, 1, 4, fp);
+                //                fwrite(ex + 8, 1, spsLength, fp);
+
+                memcpy(ppsPacket.data, startCode, 4);
+                memcpy(ppsPacket.data + 4, ex + 8 + spsLength + 2 + 1, ppsLength);
+                deliverVideoFrame(&ppsPacket);
+
+                //                fwrite(startCode, 1, 4, fp);
+                //                fwrite(ex + 8 + spsLength + 2 + 1, 1, ppsLength, fp);
+                cout = 2;
+                sendSpsPps = true;
+            }
+
+            int nalLength = 0;
+            uint8_t *data = _avPacket.data;
+            while (data < _avPacket.data + _avPacket.size) {
+                nalLength = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+                if (nalLength > 0) {
+                    memcpy(data, startCode, 4);
+                    tmpPacket = _avPacket;
+                    tmpPacket.data = data;
+                    tmpPacket.size = nalLength + 4;
+                    logger("send [%d], len = %d", cout++, tmpPacket.size);
+                    dumpHex(data + 4, 10);
+                    deliverVideoFrame(&tmpPacket);
+
+                    //                    fwrite(startCode, 1, 4, fp);
+                    //                    fwrite(data + 4, 1, nalLength, fp);
+                }
+                data = data + 4 + nalLength;
+            }
+
+            pts_time = av_rescale_q(_avPacket.pts, video_st->time_base, time_base_q);
+            now_time = av_gettime() - start_time;
+            if (pts_time - now_time > 0) {
                 av_usleep(pts_time - now_time);
-            logger("sleep %ld", (pts_time - now_time));
-
+                logger("sleep %ld", (pts_time - now_time));
+            }
         } else if (_avPacket.stream_index == _audioStreamIndex) {
-            AVStream *audio_st = _avFmtCtx->streams[_audioStreamIndex];
-            _avPacket.dts = timeRescale(_avPacket.dts, audio_st->time_base, _msTimeBase) + _timestampOffset;
-            _avPacket.pts = timeRescale(_avPacket.pts, audio_st->time_base, _msTimeBase) + _timestampOffset;
-            deliverAudioFrame(&_avPacket);
-
-            AVRational time_base_q = { 1, AV_TIME_BASE };
-            int64_t pts_time = av_rescale_q(_avPacket.pts, audio_st->time_base, time_base_q);
-            int64_t now_time = av_gettime() - start_time;
-            if (pts_time > now_time)
-                av_usleep(pts_time - now_time);
-
-            logger("sleep %ld", (pts_time - now_time));
+            logger("audio");
+            //            AVStream *audio_st = _avFmtCtx->streams[_audioStreamIndex];
+            //            _avPacket.dts = timeRescale(_avPacket.dts, audio_st->time_base, _msTimeBase) +
+            //            _timestampOffset; _avPacket.pts = timeRescale(_avPacket.pts, audio_st->time_base, _msTimeBase)
+            //            + _timestampOffset; deliverAudioFrame(&_avPacket); logger("read audio _avPacket %s",
+            //            dumpHex(_avPacket.data, 10));
+            //
+            //            AVRational time_base_q = { 1, AV_TIME_BASE };
+            //            int64_t pts_time = av_rescale_q(_avPacket.pts, audio_st->time_base, time_base_q);
+            //            int64_t now_time = av_gettime() - start_time;
+            //            if (pts_time > now_time)
+            //                av_usleep(pts_time - now_time);
+            //
+            //            logger("sleep %ld", (pts_time - now_time));
         }
         _lastTimstamp = _avPacket.dts;
         av_packet_unref(&_avPacket);
     }
-    logger("Thread exited!");
-    sleep(200);
-    logger("Thread exited!");
 
+    //    fclose(fp);
+    sleep(10);
+    logger("Thread exited!");
 }

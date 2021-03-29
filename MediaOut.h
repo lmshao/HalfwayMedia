@@ -15,7 +15,7 @@ extern "C" {
 #include "MediaFramePipeline.h"
 
 class MediaFrame {
-public:
+  public:
     explicit MediaFrame(const Frame &frame, int64_t timestamp = 0);
     ~MediaFrame();
 
@@ -25,14 +25,14 @@ public:
 };
 
 class MediaFrameQueue {
-public:
+  public:
     MediaFrameQueue();
     virtual ~MediaFrameQueue() = default;
     void pushFrame(const Frame &frame);
     std::shared_ptr<MediaFrame> popFrame(int timeout = 0);
     void cancel();
 
-private:
+  private:
     std::queue<std::shared_ptr<MediaFrame>> _queue;
     std::mutex _mutex;
     std::condition_variable _cond;
@@ -45,44 +45,40 @@ private:
 };
 
 class MediaOut : public FrameDestination {
-public:
-    enum Status
-    {
-        Context_CLOSED = -1,
-        Context_EMPTY = 0,
-        Context_INITIALIZING = 1,
-        Context_READY = 2
-    };
+  public:
+    enum Status { Context_CLOSED = -1, Context_EMPTY = 0, Context_INITIALIZING = 1, Context_READY = 2 };
 
     explicit MediaOut(const std::string &url, bool hasAudio, bool hasVideo);
     virtual ~MediaOut();
     virtual void onFrame(const Frame &frame);
+    void close();
 
-protected:
+    void waitThread();
+
+  protected:
     virtual bool isAudioFormatSupported(FrameFormat format) = 0;
     virtual bool isVideoFormatSupported(FrameFormat format) = 0;
     virtual const char *getFormatName(std::string &url) = 0;
-    virtual uint32_t getKeyFrameInterval(void) = 0;
-    virtual uint32_t getReconnectCount(void) = 0;
+    virtual uint32_t getKeyFrameInterval() = 0;
+    virtual uint32_t getReconnectCount() = 0;
 
-    bool open();
+    bool connect();
 
     bool addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t channels);
     bool addVideoStream(FrameFormat format, uint32_t width, uint32_t height);
 
-    bool writeHeader();
-    bool writeFrame(AVStream *stream, std::shared_ptr<MediaFrame> mediaFrame);
+    virtual bool writeHeader();
+    virtual bool getHeaderOpt(std::string &url, AVDictionary **options) = 0;
+    bool writeFrame(AVStream *stream, const std::shared_ptr<MediaFrame> &mediaFrame);
 
     void sendLoop();
 
     static AVCodecID frameFormat2AVCodecID(int frameFormat);
 
-    void close();
-
-private:
+  private:
     Status _status;
 
-    std::string _filename;
+    std::string _url;
     bool _hasAudio;
     bool _hasVideo;
 
@@ -93,6 +89,7 @@ private:
     uint32_t _width;
     uint32_t _height;
 
+    bool _videoSourceChanged;
     std::shared_ptr<MediaFrame> _videoKeyFrame;
     MediaFrameQueue _frameQueue;
 
@@ -100,6 +97,7 @@ private:
     AVStream *_audioStream;
     AVStream *_videoStream;
 
+    FILE *_outFile;
     std::thread _thread;
 };
 

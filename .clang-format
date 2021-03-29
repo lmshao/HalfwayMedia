@@ -1,7 +1,7 @@
 ---
 Language: Cpp
-BasedOnStyle: Google
-AccessModifierOffset: -4
+# BasedOnStyle: Google
+AccessModifierOffset: -2
 AlignAfterOpenBracket: Align
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
@@ -23,7 +23,7 @@ BreakBeforeBraces: Custom
 BraceWrapping:   
   AfterClass:      false
   AfterControlStatement: "Never"
-  AfterEnum:       true
+  AfterEnum:       false
   AfterFunction:   true
   AfterNamespace:  false
   AfterObjCDeclaration: false

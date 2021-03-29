@@ -30,3 +30,17 @@ char *ff_err2str(int errRet)
     av_strerror(errRet, (char *)(&errBuff), 500);
     return errBuff;
 }
+
+char *dumpHex(const uint8_t *ptr, int length)
+{
+    static char dd[100];
+    memset(dd, 0, sizeof(dd));
+
+    int i;
+    for (i = 0; i < length; ++i) {
+        sprintf(dd + i * 2, "%.2x", *(ptr + i));
+    }
+
+    printf("%s\n", dd);
+    return dd;
+}

@@ -8,20 +8,19 @@
 #include "MediaOut.h"
 
 class MediaFileOut : public MediaOut {
-public:
+  public:
     MediaFileOut(const std::string &url, bool hasAudio, bool hasVideo);
 
     ~MediaFileOut() override;
 
-protected:
+  protected:
     bool isAudioFormatSupported(FrameFormat format) override;
-
     bool isVideoFormatSupported(FrameFormat format) override;
 
     const char *getFormatName(std::string &url) override;
+    bool getHeaderOpt(std::string &url, AVDictionary **options) override;
 
     uint32_t getKeyFrameInterval() override;
-
     uint32_t getReconnectCount() override;
 };
 

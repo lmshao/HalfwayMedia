@@ -59,6 +59,7 @@ void MediaFrameQueue::pushFrame(const Frame &frame)
     if (!_valid)
         return;
 
+    // Cache the last frame
     std::shared_ptr<MediaFrame> lastFrame;
     std::shared_ptr<MediaFrame> mediaFrame(new MediaFrame(frame, currentTimeMs() - _startTimeOffset));
     if (isAudioFrame(frame)) {
@@ -91,7 +92,7 @@ void MediaFrameQueue::pushFrame(const Frame &frame)
         lastFrame = _lastVideoFrame;
         _lastVideoFrame = mediaFrame;
     }
-
+    logger("_queue.push");
     _queue.push(lastFrame);
     if (_queue.size() == 1) {
         lock.unlock();
@@ -105,7 +106,7 @@ std::shared_ptr<MediaFrame> MediaFrameQueue::popFrame(int timeout)
     std::shared_ptr<MediaFrame> mediaFrame;
 
     if (!_valid) {
-        logger("");
+        logger("_valid is false");
         return nullptr;
     }
 
@@ -118,7 +119,7 @@ std::shared_ptr<MediaFrame> MediaFrameQueue::popFrame(int timeout)
         _queue.pop();
     }
 
-    logger("popFrame %d", mediaFrame ? 1 : 0);
+    logger("popFrame %d, left num : %d", mediaFrame ? 1 : 0, _queue.size());
     return mediaFrame;
 }
 
@@ -130,18 +131,23 @@ void MediaFrameQueue::cancel()
 }
 
 MediaOut::MediaOut(const std::string &url, bool hasAudio, bool hasVideo)
-  : _filename(url),
+  : _status(Context_EMPTY),
+    _url(url),
     _hasAudio(hasAudio),
     _hasVideo(hasVideo),
-    _avFmtCtx(nullptr),
     _audioFormat(FRAME_FORMAT_UNKNOWN),
     _sampleRate(0),
     _channels(0),
     _videoFormat(FRAME_FORMAT_UNKNOWN),
     _width(0),
-    _height(0)
+    _height(0),
+    _videoSourceChanged(true),
+    _avFmtCtx(nullptr),
+    _audioStream(nullptr),
+    _videoStream(nullptr),
+    _outFile(nullptr)
 {
-    logger("url %s, audio %d, video %d", _filename.c_str(), _hasAudio, _hasVideo);
+    logger("url %s, audio %d, video %d", _url.c_str(), _hasAudio, _hasVideo);
     if (!_hasAudio && !_hasVideo) {
         logger("Audio/Video not enabled");
         return;
@@ -191,6 +197,8 @@ void MediaOut::onFrame(const Frame &frame)
             return;
         }
 
+        logger("pushFrame audio %s", dumpHex(frame.payload, 10));
+
         _frameQueue.pushFrame(frame);
     } else if (isVideoFrame(frame)) {
         logger("recv one video frame");
@@ -204,12 +212,17 @@ void MediaOut::onFrame(const Frame &frame)
             return;
         }
 
+        // recv video frame for the first time
         if (_videoFormat == FRAME_FORMAT_UNKNOWN) {
             if (!frame.additionalInfo.video.isKeyFrame) {
                 logger("Request video key frame for initialization");
                 return;
             }
 
+            logger("Initial video options: format(%s), %dx%d", getFormatStr(frame.format),
+                   frame.additionalInfo.video.width, frame.additionalInfo.video.height);
+
+            _videoSourceChanged = false;
             _videoKeyFrame.reset(new MediaFrame(frame));
 
             _width = frame.additionalInfo.video.width;
@@ -222,12 +235,32 @@ void MediaOut::onFrame(const Frame &frame)
             return;
         }
 
-        // TODO: support updating video status
-        if (_width != frame.additionalInfo.video.width || _height != frame.additionalInfo.video.height) {
+        // video resolution has changed
+        if (!_videoSourceChanged &&
+            (_width != frame.additionalInfo.video.width || _height != frame.additionalInfo.video.height)) {
             logger("Video resolution changed %dx%d -> %dx%d", _width, _height, frame.additionalInfo.video.width,
                    frame.additionalInfo.video.height);
-            return;
+            _videoSourceChanged = true;
         }
+
+        if (_videoSourceChanged) {
+            if (!frame.additionalInfo.video.isKeyFrame) {
+                logger("Request video key frame for video changed");
+                return;
+            }
+
+            logger("Ready after video changed: format(%s), %dx%d", getFormatStr(frame.format),
+                   frame.additionalInfo.video.width, frame.additionalInfo.video.height);
+
+            _videoSourceChanged = false;
+            _videoKeyFrame.reset(new MediaFrame(frame));
+
+            _width = frame.additionalInfo.video.width;
+            _height = frame.additionalInfo.video.height;
+            _videoFormat = frame.format;
+        }
+
+        logger("pushFrame video %s", dumpHex(frame.payload, 10));
 
         _frameQueue.pushFrame(frame);
     } else {
@@ -237,7 +270,8 @@ void MediaOut::onFrame(const Frame &frame)
 
 void MediaOut::close()
 {
-    logger("Close %s", _filename.c_str());
+    //    printf("Close %s", _url.c_str());
+    _status = Context_CLOSED;
     _frameQueue.cancel();
     _thread.join();
 }
@@ -266,18 +300,20 @@ AVCodecID MediaOut::frameFormat2AVCodecID(int frameFormat)
             return AV_CODEC_ID_NONE;
     }
 }
-bool MediaOut::open()
+bool MediaOut::connect()
 {
     logger("open enter");
-    const char *formatName = "mp4";  // "matroska" for mkv, "mp4" for mp4
-    avformat_alloc_output_context2(&_avFmtCtx, nullptr, formatName, _filename.c_str());
+    const char *formatName = getFormatName(_url);  // "matroska" for mkv, "mp4" for mp4
+    logger("%s", formatName);
+    avformat_alloc_output_context2(&_avFmtCtx, nullptr, formatName, _url.c_str());
     if (!_avFmtCtx) {
-        logger("Cannot allocate output context, format(%s), url(%s)", "", _filename.c_str());
+        logger("Cannot allocate output context, format(%s), url(%s)", "", _url.c_str());
         return false;
     }
 
     if (!(_avFmtCtx->oformat->flags & AVFMT_NOFILE)) {
-        int ret = avio_open(&_avFmtCtx->pb, _avFmtCtx->url, AVIO_FLAG_WRITE);
+        logger("");
+        int ret = avio_open(&_avFmtCtx->pb, _url.c_str(), AVIO_FLAG_WRITE);
         if (ret < 0) {
             logger("Cannot open avio, %s", ff_err2str(ret));
             avformat_free_context(_avFmtCtx);
@@ -286,7 +322,7 @@ bool MediaOut::open()
         }
     }
 
-    logger("open %s", _filename.c_str());
+    logger("open %s", _url.c_str());
     return true;
 }
 
@@ -299,7 +335,6 @@ bool MediaOut::addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t 
         logger("Cannot add audio stream");
         return false;
     }
-    logger("");
 
     AVCodecParameters *par = _audioStream->codecpar;
     par->codec_type = AVMEDIA_TYPE_AUDIO;
@@ -307,8 +342,6 @@ bool MediaOut::addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t 
     par->sample_rate = sampleRate;
     par->channels = channels;
     par->channel_layout = av_get_default_channel_layout(par->channels);
-    logger("");
-
     switch (par->codec_id) {
         case AV_CODEC_ID_AAC:  // AudioSpecificConfig 48000-2
             par->extradata_size = 2;
@@ -349,21 +382,21 @@ bool MediaOut::addAudioStream(FrameFormat format, uint32_t sampleRate, uint32_t 
             break;
     }
 
-    logger("---");
+    logger("dump audio");
+    av_dump_format(_avFmtCtx, 0, _url.c_str(), 1);
     return true;
 }
 
 bool MediaOut::addVideoStream(FrameFormat format, uint32_t width, uint32_t height)
 {
     logger("%s %ld %ld", getFormatStr(format), width, height);
-
     enum AVCodecID codecId = frameFormat2AVCodecID(format);
     _videoStream = avformat_new_stream(_avFmtCtx, nullptr);
     if (!_videoStream) {
         logger("Cannot add video stream");
         return false;
     }
-    logger("");
+
     AVCodecParameters *par = _videoStream->codecpar;
     par->codec_type = AVMEDIA_TYPE_VIDEO;
     par->codec_id = codecId;
@@ -375,6 +408,9 @@ bool MediaOut::addVideoStream(FrameFormat format, uint32_t width, uint32_t heigh
             logger("Cannot find video parser");
             return false;
         }
+
+        logger("keyframe %p %d", _videoKeyFrame->_frame.payload, _videoKeyFrame->_frame.length);
+        logger("dump _avPacket %s", dumpHex(_videoKeyFrame->_frame.payload, 10));
 
         int size = parser->parser->split(nullptr, _videoKeyFrame->_frame.payload, _videoKeyFrame->_frame.length);
         if (size > 0) {
@@ -392,6 +428,8 @@ bool MediaOut::addVideoStream(FrameFormat format, uint32_t width, uint32_t heigh
         par->codec_tag = 0x31637668;  // hvc1
     }
 
+    logger("dump video");
+    av_dump_format(_avFmtCtx, 0, _url.c_str(), 1);
     return true;
 }
 
@@ -399,19 +437,31 @@ bool MediaOut::writeHeader()
 {
     int ret;
     AVDictionary *options = nullptr;
-    ret = avformat_write_header(_avFmtCtx, nullptr);
+
+    ret = getHeaderOpt(_url, &options);
+    if (!ret) {
+        logger("Cannot get header options");
+        return false;
+    }
+
+    ret = avformat_write_header(_avFmtCtx, options ? &options : nullptr);
     if (ret < 0) {
-        logger("Cannot write header, %s", ff_err2str(ret));
+        //        logger("Cannot write %s header, %s", _avFmtCtx->url, ff_err2str(ret));
         return false;
     }
     return true;
 }
 
-bool MediaOut::writeFrame(AVStream *stream, std::shared_ptr<MediaFrame> mediaFrame)
+bool MediaOut::writeFrame(AVStream *stream, const std::shared_ptr<MediaFrame> &mediaFrame)
 {
     int ret;
     AVPacket pkt;
-    if (stream == nullptr || mediaFrame == nullptr) {
+
+    if (mediaFrame == nullptr) {
+        return false;
+    }
+
+    if (stream == nullptr) {
         return false;
     }
 
@@ -445,7 +495,9 @@ void MediaOut::sendLoop()
     const uint32_t waitMs = 20, totalWaitMs = 10 * 1000;
     uint32_t timeout = 0;
     int ret2;
-    while ((_hasAudio && _audioFormat == FRAME_FORMAT_UNKNOWN) || (_hasAudio && _videoFormat == FRAME_FORMAT_UNKNOWN)) {
+    int count = 0;
+
+    while ((_hasAudio && _audioFormat == FRAME_FORMAT_UNKNOWN) || (_hasVideo && _videoFormat == FRAME_FORMAT_UNKNOWN)) {
         if (_status == Context_CLOSED) {
             goto exit;
         }
@@ -460,7 +512,7 @@ void MediaOut::sendLoop()
         logger("Wait for av options avaible, timeout %ld ms", timeout);
     }
 
-    if (!open()) {
+    if (!connect()) {
         logger("init Cannot open connection");
         goto exit;
     }
@@ -471,7 +523,7 @@ void MediaOut::sendLoop()
     }
 
     if (_hasVideo && !addVideoStream(_videoFormat, _width, _height)) {
-        logger("");
+        logger("Cannot add video stream");
         goto exit;
     }
 
@@ -484,17 +536,19 @@ void MediaOut::sendLoop()
     av_dump_format(_avFmtCtx, 0, _avFmtCtx->url, 1);
 
     _status = Context_READY;
-
     while (_status == Context_READY) {
-        logger("");
+        logger("-----------------------------------");
         std::shared_ptr<MediaFrame> mediaFrame = _frameQueue.popFrame(2000);
         if (!mediaFrame) {
             if (_status == Context_READY) {
                 logger("No input frames available");
             }
+            logger("---------");
             break;
         }
 
+        logger("writeFrame [%d]", count++);
+        DUMP_HEX(mediaFrame->_frame.payload, 10);
         bool ret = writeFrame(isVideoFrame(mediaFrame->_frame) ? _videoStream : _audioStream, mediaFrame);
         if (!ret) {
             logger("Cannot write frame");
@@ -509,4 +563,8 @@ exit:
     logger("---------------------------------------------------------------");
     _status = Context_CLOSED;
     logger("Thread exited!");
+}
+void MediaOut::waitThread()
+{
+    _thread.join();
 }

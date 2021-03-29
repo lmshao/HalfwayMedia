@@ -6,13 +6,18 @@
 #include "Utils.h"
 
 MediaIn::MediaIn(const std::string &filename)
-  : _filename(filename), _avFmtCtx(nullptr), _audioStreamIndex(-1), _videoStreamIndex(-1)
+  : _url(filename),
+    _avFmtCtx(nullptr),
+    _audioStreamIndex(-1),
+    _videoStreamIndex(-1),
+    _needCheckVBS(true),
+    _enableVideoExtradata(false)
 {
 }
 
 MediaIn::~MediaIn()
 {
-    avformat_close_input(&_avFmtCtx);
+    //    avformat_close_input(&_avFmtCtx);
     logger("~");
 }
 
@@ -24,4 +29,14 @@ bool MediaIn::hasAudio() const
 bool MediaIn::hasVideo() const
 {
     return _videoStreamIndex > -1;
+}
+
+void MediaIn::waitThread()
+{
+    _thread.join();
+}
+
+void MediaIn::close()
+{
+    _runing = false;
 }

@@ -14,7 +14,7 @@ extern "C" {
 }
 
 class MediaFileIn : public MediaIn {
-public:
+  public:
     explicit MediaFileIn(const std::string &filename);
     ~MediaFileIn() override;
 
@@ -22,13 +22,13 @@ public:
     void deliverVideoFrame(AVPacket *pkt) override;
     void deliverAudioFrame(AVPacket *pkt) override;
 
-private:
+  private:
     bool checkStream();
 
-public:
+  public:
     void start() override;
 
-private:
+  private:
     AVRational _msTimeBase;
     AVRational _videoTimeBase;
     AVRational _audioTimeBase;

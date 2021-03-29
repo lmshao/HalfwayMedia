@@ -41,15 +41,34 @@ bool MediaFileOut::isVideoFormatSupported(FrameFormat format)
 
 const char *MediaFileOut::getFormatName(std::string &url)
 {
+    int dot = url.rfind('.');
+    if (dot < 0)
+        return nullptr;
+
+    std::string suffix = url.substr(dot + 1);
+    if (suffix == "mkv") {
+        return "matroska";
+    }
+
+    if (suffix == "mp4") {
+        return "mp4";
+    }
+
+    logger("Invalid format for url(%s)", url.c_str());
     return nullptr;
 }
 
-uint32_t MediaFileOut::getKeyFrameInterval(void)
+bool MediaFileOut::getHeaderOpt(std::string &url, AVDictionary **options)
+{
+    return true;
+}
+
+uint32_t MediaFileOut::getKeyFrameInterval()
 {
     return 120000;
 }
 
-uint32_t MediaFileOut::getReconnectCount(void)
+uint32_t MediaFileOut::getReconnectCount()
 {
     return 0;
 }
