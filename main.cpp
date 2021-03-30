@@ -7,6 +7,7 @@
 #include "AudioDecoder.h"
 #include "AudioEncoder.h"
 #include "RawFileOut.h"
+#include "VideoEncoder.h"
 
 enum StreamType { FILE_MODE, RTMP_MODE, RTSP_MODE, UNKNOWN_MODE };
 
@@ -42,15 +43,17 @@ int main(int argc, char **argv)
     printf("Hello Halfway\n");
 
     //    signal(SIGINT, signalHandler);
-
-    std::string in = "../assets/echo.mp3";
+    std::string filename = std::to_string(time(nullptr));
+    std::string in = "../assets/Sample.mkv";
     //    std::string in = "rtsp://192.168.188.181:8554/Taylor-720p-1M.ts";
-    std::string out = "./out.mp4";
+    std::string out = filename + ".mp4";
 
     std::shared_ptr<MediaIn> mediaIn;
     std::shared_ptr<MediaOut> mediaOut;
     std::shared_ptr<VideoDecoder> videoDecoder;
     std::shared_ptr<AudioDecoder> audioDecoder;
+    std::shared_ptr<VideoEncoder> videoEncoder;
+    std::shared_ptr<AudioEncoder> audioEncoder;
     std::shared_ptr<RawFileOut> rawFileOut;
 
     int opt;
@@ -83,8 +86,6 @@ int main(int argc, char **argv)
 
     switch (guessProtocol(in)) {
         case FILE_MODE:
-            //            mediaIn.reset(new MediaFileIn(in));
-            //            break;
         case RTSP_MODE:
             mediaIn.reset(new LiveStreamIn(in));
             gMediaIn = mediaIn;
@@ -94,25 +95,19 @@ int main(int argc, char **argv)
 
     mediaIn->open();
 
-    audioDecoder.reset(new AudioDecoder());
-    audioDecoder->init(FRAME_FORMAT_AAC);
+    videoDecoder.reset(new VideoDecoder());
+    videoDecoder->init(FRAME_FORMAT_H264);
 
-    //    rawFileOut.reset(new RawFileOut("./0326.pcm"));
-    // decoder -> raw file
-    //    audioDecoder->addAudioDestination(rawFileOut.get());
+    mediaIn->addVideoDestination(videoDecoder.get());
 
-    std::shared_ptr<AudioEncoder> audioEncoder;
-    audioEncoder.reset(new AudioEncoder(FRAME_FORMAT_AAC_48000_2));
-    audioEncoder->init();
-    // decoder -> encoder
-    audioDecoder->addAudioDestination(audioEncoder.get());
+    //    rawFileOut.reset(new RawFileOut(filename+".yuv"));
+    //    videoDecoder->addVideoDestination(rawFileOut.get());
 
-    mediaOut.reset(new MediaFileOut("last.aac", true, false));
-    // encoder -> mediaout
-    audioEncoder->addAudioDestination(mediaOut.get());
+    videoEncoder.reset(new VideoEncoder(FRAME_FORMAT_H264));
+    videoDecoder->addVideoDestination(videoEncoder.get());
 
-    // in -> decoder
-    mediaIn->addAudioDestination(audioDecoder.get());
+    mediaOut.reset(new MediaFileOut(filename + ".mp4", false, true));
+    videoEncoder->addVideoDestination(mediaOut.get());
 
     mediaIn->start();
 

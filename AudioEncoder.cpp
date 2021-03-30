@@ -53,7 +53,7 @@ AudioEncoder::~AudioEncoder()
 
     if (_audioEnc) {
         avcodec_close(_audioEnc);
-        _audioEnc = NULL;
+        _audioEnc = nullptr;
     }
 
     _format = FRAME_FORMAT_UNKNOWN;
@@ -80,9 +80,6 @@ bool AudioEncoder::addAudioFrame(const Frame &audioFrame)
 {
     if (!_valid)
         return false;
-
-    //    if (audioFrame)
-    //        return false;
 
     if (!addToFifo(audioFrame))
         return false;

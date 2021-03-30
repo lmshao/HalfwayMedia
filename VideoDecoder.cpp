@@ -113,23 +113,16 @@ void VideoDecoder::onFrame(const Frame &frame)
     memcpy(_i420Buffer.get() + ySize, _decFrame->data[1], uvSize);
     memcpy(_i420Buffer.get() + ySize + uvSize, _decFrame->data[2], uvSize);
 
-    Frame f;
-    memset(&f, 0, sizeof(f));
-    f.format = FRAME_FORMAT_I420;
-    f.payload = _i420Buffer.get();
-    f.length = _i420BufferLength;
-    f.timeStamp = _decFrame->pkt_dts;
-    f.additionalInfo.video.width = _decCtx->width;
-    f.additionalInfo.video.height = _decCtx->height;
+    Frame frameDecoded;
+    memset(&frameDecoded, 0, sizeof(frameDecoded));
+    frameDecoded.format = FRAME_FORMAT_I420;
+    frameDecoded.payload = _i420Buffer.get();
+    frameDecoded.length = _i420BufferLength;
+    frameDecoded.timeStamp = _decFrame->pkt_dts;
+    frameDecoded.additionalInfo.video.width = _decCtx->width;
+    frameDecoded.additionalInfo.video.height = _decCtx->height;
 
-    logger("deliverFrame, %dx%d, timeStamp %d", f.additionalInfo.video.width, f.additionalInfo.video.height,
-           frame.timeStamp);
-
-    FILE *file = fopen("decoded.yuv", "a+");
-    if (file == nullptr)
-        return;
-    fwrite(f.payload, 1, f.length, file);
-    fclose(file);
-
-    deliverFrame(frame);
+    logger("deliverFrame, %dx%d, timeStamp %d", frameDecoded.additionalInfo.video.width,
+           frameDecoded.additionalInfo.video.height, frame.timeStamp);
+    deliverFrame(frameDecoded);
 }

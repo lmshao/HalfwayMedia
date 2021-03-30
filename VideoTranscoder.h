@@ -21,7 +21,7 @@ class VideoTranscoder : public FrameSource, public FrameDestination {
     void unsetInput(int input);
 
     bool addOutput(int output, FrameFormat frameFormat, unsigned int width, unsigned int height,
-                   const unsigned int framerateFPS, const unsigned int bitrateKbps, FrameDestination *dest);
+                   unsigned int framerateFPS, unsigned int bitrateKbps, FrameDestination *dest);
 
     void removeOutput(int output);
 

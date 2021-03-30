@@ -7,16 +7,35 @@
 
 #include "MediaFramePipeline.h"
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+}
+
 class VideoEncoder : public FrameSource, public FrameDestination {
   public:
-    VideoEncoder(FrameFormat format);
+    explicit VideoEncoder(FrameFormat format);
     ~VideoEncoder() override;
 
     void onFrame(const Frame &frame) override;
     int32_t generateStream(uint32_t width, uint32_t height, FrameDestination *dest);
     void degenerateStream(int32_t streamId);
 
+  protected:
+    bool initEncoder(FrameFormat format);
+    void sendOut(AVPacket &pkt);
+    void flushEncoder();
+
   private:
+    bool _valid;
+    int _width;
+    int _height;
+    int _frameRate;
+    int _bitrateKbps;
+    int _keyFrameIntervalSeconds;
+    FrameFormat _format;
+    AVCodecContext *_videoEnc;
+    AVFrame *_videoFrame;
     std::shared_mutex _mutex;
 };
 

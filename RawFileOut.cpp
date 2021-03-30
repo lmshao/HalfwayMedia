@@ -21,9 +21,9 @@ RawFileOut::~RawFileOut()
 
 void RawFileOut::onFrame(const Frame &frame)
 {
-    logger("");
     if (!_fileHandler.is_open())
         return;
-
+    logger("write raw file %d", frame.length);
+    DUMP_HEX(frame.payload, 10);
     _fileHandler.write(reinterpret_cast<const char *>(frame.payload), frame.length);
 }
