@@ -21,12 +21,12 @@ static enum AVSampleFormat getCodecPreferedSampleFmt(AVCodec *codec, enum AVSamp
     return codec->sample_fmts[0];
 }
 
-//inline int64_t currentTime()
+// inline int64_t currentTime()
 //{
-//    timeval time;
-//    gettimeofday(&time, nullptr);
-//    return ((time.tv_sec * 1000) + (time.tv_usec / 1000));
-//}
+//     timeval time;
+//     gettimeofday(&time, nullptr);
+//     return ((time.tv_sec * 1000) + (time.tv_usec / 1000));
+// }
 
 AudioEncoder::AudioEncoder(FrameFormat format)
     : _format(format),
@@ -89,6 +89,28 @@ bool AudioEncoder::addAudioFrame(const Frame &audioFrame)
     return true;
 }
 
+void AudioEncoder::flush()
+{
+    AVPacket pkt;
+    av_init_packet(&pkt);
+
+    for (;;) {
+        avcodec_send_frame(_audioEnc, nullptr);
+        int ret = avcodec_receive_packet(_audioEnc, &pkt);
+        if (ret == 0) {
+            logger("get pkg in encoder");
+            sendOut(pkt);
+            av_packet_unref(&pkt);
+        } else if (ret == AVERROR_EOF) {
+            logger("complete encoding\n");
+            break;
+        } else {
+            logger("Error encoding frame\n");
+            break;
+        }
+    }
+}
+
 bool AudioEncoder::initEncoder(const FrameFormat format)
 {
     int ret;
@@ -132,7 +154,7 @@ bool AudioEncoder::initEncoder(const FrameFormat format)
     _audioEnc->channel_layout = av_get_default_channel_layout(_audioEnc->channels);
     _audioEnc->sample_rate = _sampleRate;
     // AV_SAMPLE_FMT_S16 | AV_SAMPLE_FMT_FLT
-    _audioEnc->sample_fmt = AV_SAMPLE_FMT_S16; // getCodecPreferedSampleFmt(codec, AV_SAMPLE_FMT_FLTP);
+    _audioEnc->sample_fmt = AV_SAMPLE_FMT_S16;  // getCodecPreferedSampleFmt(codec, AV_SAMPLE_FMT_FLTP);
     _audioEnc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     ret = avcodec_open2(_audioEnc, codec, nullptr);
@@ -240,7 +262,7 @@ void AudioEncoder::encode()
             break;
         }
 
-        n = av_audio_fifo_read(_audioFifo, (void**)(_audioFrame->data), _audioEnc->frame_size);
+        n = av_audio_fifo_read(_audioFifo, (void **)(_audioFrame->data), _audioEnc->frame_size);
         if (n != _audioEnc->frame_size) {
             logger("Cannot read enough data from fifo, needed %d, read %d", _audioEnc->frame_size, n);
             return;
@@ -277,7 +299,7 @@ void AudioEncoder::sendOut(AVPacket &pkt)
     frame.additionalInfo.audio.nbSamples = _audioEnc->frame_size;
     frame.additionalInfo.audio.sampleRate = _audioEnc->sample_rate;
     frame.additionalInfo.audio.channels = _audioEnc->channels;
-    frame.timeStamp = AudioTime::currentTime() ;/* frame.additionalInfo.audio.sampleRate / 1000;*/
+    frame.timeStamp = AudioTime::currentTime(); /* frame.additionalInfo.audio.sampleRate / 1000;*/
 
     logger("deliverFrame(%s), sampleRate(%d), channels(%d), timeStamp(%d), length(%d), %s", getFormatStr(frame.format),
            frame.additionalInfo.audio.sampleRate, frame.additionalInfo.audio.channels,

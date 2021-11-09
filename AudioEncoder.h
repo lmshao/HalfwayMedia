@@ -21,6 +21,7 @@ class AudioEncoder : public FrameSource, public FrameDestination {
 
     bool init();
     bool addAudioFrame(const Frame &audioFrame);
+    void flush();
 
   protected:
     bool initEncoder(FrameFormat format);

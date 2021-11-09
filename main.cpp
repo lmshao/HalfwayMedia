@@ -139,9 +139,10 @@ int main(int argc, char **argv)
     mediaIn->start();
 
     if (mediaIn != nullptr) mediaIn->waitThread();
-
+    audioEncoder->flush();
     sleep(1);
     if (mediaOut != nullptr) mediaOut->waitThread();
-    printf("\n==============\nmain exit!\n==============");
+
+    printf("\n==============\nmain exit!\n==============\n");
     return 0;
 }
