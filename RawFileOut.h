@@ -6,7 +6,6 @@
 #define HALFWAYLIVE_RAWFILEOUT_H
 
 #include "MediaFramePipeline.h"
-#include <fstream>
 #include "Utils.h"
 
 class RawFileOut : public FrameDestination {
@@ -16,7 +15,7 @@ class RawFileOut : public FrameDestination {
     void onFrame(const Frame &frame) override;
 
   private:
-    std::ofstream _fileHandler;
+    FILE *_file;
 };
 
 #endif  // HALFWAYLIVE_RAWFILEOUT_H

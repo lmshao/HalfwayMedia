@@ -12,10 +12,10 @@ void print(const char *fname, int line, const char *func, const char *fmt, ...);
 
 char *ff_err2str(int errRet);
 
-#define DUMP_HEX(x, y)                                                                                                 \
-    {                                                                                                                  \
-        printf("%s: ", #x);                                                                                            \
-        dumpHex(x, y);                                                                                                 \
+#define DUMP_HEX(x, y)      \
+    {                       \
+        printf("%s: ", #x); \
+        dumpHex(x, y);      \
     }
 
 char *dumpHex(const uint8_t *ptr, int lenght);

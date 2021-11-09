@@ -18,8 +18,8 @@ class MediaIn : public FrameSource {
     explicit MediaIn(const std::string &filename);
     virtual ~MediaIn();
     virtual bool open() = 0;
-    bool hasAudio() const;
-    bool hasVideo() const;
+    virtual bool hasAudio() const;
+    virtual bool hasVideo() const;
 
     virtual void deliverVideoFrame(AVPacket *pkt) = 0;
     virtual void deliverAudioFrame(AVPacket *pkt) = 0;

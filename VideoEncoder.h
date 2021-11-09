@@ -34,8 +34,8 @@ class VideoEncoder : public FrameSource, public FrameDestination {
     int _bitrateKbps;
     int _keyFrameIntervalSeconds;
     FrameFormat _format;
-    AVCodecContext *_videoEnc;
-    AVFrame *_videoFrame;
+    AVCodecContext *_videoEnc{};
+    AVFrame *_videoFrame{};
     std::shared_mutex _mutex;
 };
 

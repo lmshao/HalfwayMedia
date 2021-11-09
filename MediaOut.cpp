@@ -56,8 +56,7 @@ MediaFrameQueue::MediaFrameQueue() : _valid(true), _startTimeOffset(currentTimeM
 void MediaFrameQueue::pushFrame(const Frame &frame)
 {
     std::unique_lock<std::mutex> lock(_mutex);
-    if (!_valid)
-        return;
+    if (!_valid) return;
 
     // Cache the last frame
     std::shared_ptr<MediaFrame> lastFrame;
@@ -131,21 +130,21 @@ void MediaFrameQueue::cancel()
 }
 
 MediaOut::MediaOut(const std::string &url, bool hasAudio, bool hasVideo)
-  : _status(Context_EMPTY),
-    _url(url),
-    _hasAudio(hasAudio),
-    _hasVideo(hasVideo),
-    _audioFormat(FRAME_FORMAT_UNKNOWN),
-    _sampleRate(0),
-    _channels(0),
-    _videoFormat(FRAME_FORMAT_UNKNOWN),
-    _width(0),
-    _height(0),
-    _videoSourceChanged(true),
-    _avFmtCtx(nullptr),
-    _audioStream(nullptr),
-    _videoStream(nullptr),
-    _outFile(nullptr)
+    : _status(Context_EMPTY),
+      _url(url),
+      _hasAudio(hasAudio),
+      _hasVideo(hasVideo),
+      _audioFormat(FRAME_FORMAT_UNKNOWN),
+      _sampleRate(0),
+      _channels(0),
+      _videoFormat(FRAME_FORMAT_UNKNOWN),
+      _width(0),
+      _height(0),
+      _videoSourceChanged(true),
+      _avFmtCtx(nullptr),
+      _audioStream(nullptr),
+      _videoStream(nullptr),
+      _outFile(nullptr)
 {
     logger("url %s, audio %d, video %d", _url.c_str(), _hasAudio, _hasVideo);
     if (!_hasAudio && !_hasVideo) {

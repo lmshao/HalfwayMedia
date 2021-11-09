@@ -1,12 +1,14 @@
 #include <unistd.h>
-#include "Utils.h"
-#include "MediaFileIn.h"
-#include "MediaFileOut.h"
-#include "LiveStreamIn.h"
-#include "VideoDecoder.h"
+
 #include "AudioDecoder.h"
 #include "AudioEncoder.h"
+#include "LiveStreamIn.h"
+#include "MediaFileIn.h"
+#include "MediaFileOut.h"
+#include "RawFileIn.h"
 #include "RawFileOut.h"
+#include "Utils.h"
+#include "VideoDecoder.h"
 #include "VideoEncoder.h"
 
 enum StreamType { FILE_MODE, RTMP_MODE, RTSP_MODE, UNKNOWN_MODE };
@@ -44,7 +46,11 @@ int main(int argc, char **argv)
 
     //    signal(SIGINT, signalHandler);
     std::string filename = std::to_string(time(nullptr));
-    std::string in = "../assets/Sample.mkv";
+    //    std::string in = "../assets/Sample.mkv";
+    std::string in = "../Sample/sample-1080p-yuv420p.yuv";
+    std::string in_audio = "../Sample/sample-audio-48k-ac2-s16le.pcm";
+    //    std::string in = "../assets/Sample.mkv";
+
     //    std::string in = "rtsp://192.168.188.181:8554/Taylor-720p-1M.ts";
     std::string out = filename + ".mp4";
 
@@ -55,6 +61,7 @@ int main(int argc, char **argv)
     std::shared_ptr<VideoEncoder> videoEncoder;
     std::shared_ptr<AudioEncoder> audioEncoder;
     std::shared_ptr<RawFileOut> rawFileOut;
+    std::shared_ptr<MediaFileOut> mediaFileOut;
 
     int opt;
     const char *opts = "i:o:dhv";
@@ -84,39 +91,57 @@ int main(int argc, char **argv)
         }
     }
 
-    switch (guessProtocol(in)) {
-        case FILE_MODE:
-        case RTSP_MODE:
-            mediaIn.reset(new LiveStreamIn(in));
-            gMediaIn = mediaIn;
-        default:
-            break;
-    }
+    //    switch (guessProtocol(in)) {
+    //        case FILE_MODE:
+    //        case RTSP_MODE:
+    //            mediaIn.reset(new LiveStreamIn(in));
+    //            gMediaIn = mediaIn;
+    //        default:
+    //            break;
+    //    }
 
+    //    RawFileInfo info;
+    //    info.type = "video";
+    //    info.media.video.pix_fmt = AV_PIX_FMT_YUV420P;
+    //    info.media.video.height = 1080;
+    //    info.media.video.width = 1920;
+    //    info.media.video.framerate = 24;
+    //    mediaIn.reset(new RawFileIn(in, info));
+    //
+    //    mediaIn->open();
+    //
+    //    rawFileOut.reset(new RawFileOut(filename+".h264"));
+    //
+    //    videoEncoder.reset(new VideoEncoder(FRAME_FORMAT_H264));
+    //    videoEncoder->addVideoDestination(rawFileOut.get());
+    //    mediaIn->addVideoDestination(videoEncoder.get());
+    //
+    //    mediaIn->start();
+    RawFileInfo info;
+    info.type = "audio";
+    info.media.audio.sample_fmt = AV_SAMPLE_FMT_S16;
+    info.media.audio.channel = 2;
+    info.media.audio.sample_rate = 48000;
+    mediaIn.reset(new RawFileIn(in_audio, info));
     mediaIn->open();
 
-    videoDecoder.reset(new VideoDecoder());
-    videoDecoder->init(FRAME_FORMAT_H264);
+    audioEncoder.reset(new AudioEncoder(FRAME_FORMAT_AAC_48000_2));
 
-    mediaIn->addVideoDestination(videoDecoder.get());
+    rawFileOut.reset(new RawFileOut(filename + ".aac"));
+    audioEncoder->addAudioDestination(rawFileOut.get());
 
-    //    rawFileOut.reset(new RawFileOut(filename+".yuv"));
-    //    videoDecoder->addVideoDestination(rawFileOut.get());
+    //    mediaOut.reset(new MediaFileOut(filename+".mp4", true, false));
+    //    audioEncoder->addAudioDestination(mediaOut.get());
 
-    videoEncoder.reset(new VideoEncoder(FRAME_FORMAT_H264));
-    videoDecoder->addVideoDestination(videoEncoder.get());
+    audioEncoder->init();
 
-    mediaOut.reset(new MediaFileOut(filename + ".mp4", false, true));
-    videoEncoder->addVideoDestination(mediaOut.get());
-
+    mediaIn->addAudioDestination(audioEncoder.get());
     mediaIn->start();
 
-    if (mediaIn != nullptr)
-        mediaIn->waitThread();
+    if (mediaIn != nullptr) mediaIn->waitThread();
 
     sleep(1);
-    if (mediaOut != nullptr)
-        mediaOut->waitThread();
-    logger("\n==============\nmain exit!\n==============");
+    if (mediaOut != nullptr) mediaOut->waitThread();
+    printf("\n==============\nmain exit!\n==============");
     return 0;
 }

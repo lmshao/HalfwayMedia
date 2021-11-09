@@ -46,6 +46,7 @@ struct VideoFrameSpecificInfo {
     uint16_t width;
     uint16_t height;
     bool isKeyFrame;
+    int framerate;
 };
 
 struct AudioFrameSpecificInfo {
@@ -64,7 +65,7 @@ struct Frame {
     FrameFormat format;
     uint8_t *payload;
     uint32_t length;
-    uint32_t timeStamp;
+    uint32_t timeStamp;  // ms ?
     MediaSpecInfo additionalInfo;
 };
 

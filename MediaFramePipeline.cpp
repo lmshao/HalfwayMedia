@@ -65,9 +65,7 @@ void FrameSource::deliverFrame(const Frame &frame)
     } else if (isVideoFrame(frame)) {
         logger("deliverFrame video");
         std::shared_lock<std::shared_mutex> lock(_videoDstsMutex);
-        logger("_videoDsts no. = %d", _videoDsts.size());
         for (auto &_videoDst : _videoDsts) {
-            logger("~~");
             _videoDst->onFrame(frame);
         }
     } else {

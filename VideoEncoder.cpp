@@ -3,11 +3,13 @@
 //
 
 #include "VideoEncoder.h"
-#include "Utils.h"
+
 #include <assert.h>
 
+#include "Utils.h"
+
 VideoEncoder::VideoEncoder(FrameFormat format)
-  : _valid(true), _width(0), _height(0), _frameRate(0), _bitrateKbps(0), _keyFrameIntervalSeconds(0), _format(format)
+    : _valid(true), _width(0), _height(0), _frameRate(0), _bitrateKbps(0), _keyFrameIntervalSeconds(0), _format(format)
 {
 }
 
@@ -15,8 +17,7 @@ VideoEncoder::~VideoEncoder()
 {
     flushEncoder();
 
-    if (!_valid)
-        return;
+    if (!_valid) return;
 
     if (_videoFrame) {
         av_frame_free(&_videoFrame);
@@ -147,8 +148,8 @@ bool VideoEncoder::initEncoder(FrameFormat format)
     _videoEnc->height = _height;
     _videoEnc->bit_rate = _bitrateKbps * 1024;
     _videoEnc->gop_size = 10;
-    _videoEnc->time_base = { 1, 24 };
-    _videoEnc->framerate = { 24, 1 };
+    _videoEnc->time_base = {1, 24};
+    _videoEnc->framerate = {24, 1};
     _videoEnc->max_b_frames = 0;
     _videoEnc->pix_fmt = AV_PIX_FMT_YUV420P;
 

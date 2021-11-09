@@ -6,8 +6,8 @@
 #define HALFWAYLIVE_MEDIAOUT_H
 
 #include <iostream>
-#include <thread>
 #include <queue>
+#include <thread>
 
 extern "C" {
 #include <libavformat/avformat.h>

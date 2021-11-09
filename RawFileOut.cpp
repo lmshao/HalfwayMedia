@@ -4,26 +4,38 @@
 
 #include "RawFileOut.h"
 
+#include "ADTSHeader.h"
+
 RawFileOut::RawFileOut(const std::string &filename, bool appendMode)
 {
-    logger("");
-    if (appendMode)
-        _fileHandler.open(filename, std::ios::binary | std::ios::app);
-    else
-        _fileHandler.open(filename, std::ios::binary);
+    if (appendMode) {
+        _file = fopen(filename.c_str(), "w");
+    } else {
+        _file = fopen(filename.c_str(), "a");
+    }
 }
 
 RawFileOut::~RawFileOut()
 {
-    logger("");
-    _fileHandler.close();
+    if (_file) {
+        fclose(_file);
+    }
 }
 
 void RawFileOut::onFrame(const Frame &frame)
 {
-    if (!_fileHandler.is_open())
-        return;
+    if (!_file) return;
+
     logger("write raw file %d", frame.length);
     DUMP_HEX(frame.payload, 10);
-    _fileHandler.write(reinterpret_cast<const char *>(frame.payload), frame.length);
+
+    if (frame.format == FRAME_FORMAT_AAC_48000_2) {
+        ADTS_Header header(48000, 2, frame.length + 7);
+        fwrite(&header, 1, sizeof(ADTS_Header), _file);
+    }
+
+    if (fwrite(frame.payload, 1, frame.length, _file) != frame.length){
+        perror("write error:");
+        return;
+    }
 }
