@@ -9,7 +9,16 @@
 #include "Utils.h"
 
 VideoEncoder::VideoEncoder(FrameFormat format)
-    : _valid(true), _width(0), _height(0), _frameRate(0), _bitrateKbps(0), _keyFrameIntervalSeconds(0), _format(format)
+    : _valid(true),
+      _width(0),
+      _height(0),
+      _frameRate(0),
+      _bitrateKbps(0),
+      _keyFrameIntervalSeconds(0),
+      _format(format),
+      _videoEnc(nullptr),
+      _videoFrame(nullptr),
+      _videoPkt(nullptr)
 {
 }
 
@@ -21,12 +30,14 @@ VideoEncoder::~VideoEncoder()
 
     if (_videoFrame) {
         av_frame_free(&_videoFrame);
-        _videoFrame = nullptr;
+    }
+
+    if (_videoPkt) {
+        av_packet_free(&_videoPkt);
     }
 
     if (_videoEnc) {
-        avcodec_close(_videoEnc);
-        _videoEnc = nullptr;
+        avcodec_free_context(&_videoEnc);
     }
 
     _format = FRAME_FORMAT_UNKNOWN;
@@ -51,7 +62,6 @@ void VideoEncoder::onFrame(const Frame &frame)
                 _bitrateKbps = 1024;
         }
 
-        // TODO: init encoder
         if (!initEncoder(_format)) {
             logger("Faild to init video Encoder");
             return;
@@ -77,19 +87,15 @@ void VideoEncoder::onFrame(const Frame &frame)
     memcpy(_videoFrame->data[2], frame.payload + ySize + uSize, uSize);
     _videoFrame->pts = frame.timeStamp;
 
-    AVPacket pkt;
-    memset(&pkt, 0, sizeof(pkt));
-    av_init_packet(&pkt);
-
     avcodec_send_frame(_videoEnc, _videoFrame);
-    int ret = avcodec_receive_packet(_videoEnc, &pkt);
+    int ret = avcodec_receive_packet(_videoEnc, _videoPkt);
     if (ret) {
         logger("avcodec_receive_packet, %s", ff_err2str(ret));
         return;
     }
 
-    sendOut(pkt);
-    av_packet_unref(&pkt);
+    sendOut(*_videoPkt);
+    av_packet_unref(_videoPkt);
 }
 
 int32_t VideoEncoder::generateStream(uint32_t width, uint32_t height, FrameDestination *dest)
@@ -171,7 +177,7 @@ bool VideoEncoder::initEncoder(FrameFormat format)
     _videoFrame = av_frame_alloc();
     if (!_videoFrame) {
         logger("Cannot allocate audio frame");
-        return false;
+        goto fail;
     }
 
     _videoFrame->width = _width;
@@ -185,19 +191,28 @@ bool VideoEncoder::initEncoder(FrameFormat format)
     }
 
     logger("Video encoder width %d, height %d", _videoFrame->width, _videoFrame->height);
+    if (_videoPkt) {
+        av_packet_free(&_videoPkt);
+    }
+
+    _videoPkt = av_packet_alloc();
+    if (!_videoPkt) {
+        logger("Cannot allocate audio frame");
+        goto fail;
+    }
 
     return true;
 
 fail:
     if (_videoFrame) {
         av_frame_free(&_videoFrame);
-        _videoFrame = nullptr;
     }
 
-    if (_videoEnc) {
-        avcodec_close(_videoEnc);
-        _videoEnc = nullptr;
+    if (_videoPkt) {
+        av_packet_free(&_videoPkt);
     }
+
+    avcodec_free_context(&_videoEnc);
 
     return false;
 }
@@ -221,16 +236,11 @@ void VideoEncoder::sendOut(AVPacket &pkt)
 }
 void VideoEncoder::flushEncoder()
 {
-    AVPacket pkt;
-    memset(&pkt, 0, sizeof(pkt));
-    av_init_packet(&pkt);
-
     while (true) {
         avcodec_send_frame(_videoEnc, nullptr);
-        int ret = avcodec_receive_packet(_videoEnc, &pkt);
+        int ret = avcodec_receive_packet(_videoEnc, _videoPkt);
         if (ret == 0) {
-            sendOut(pkt);
-            av_packet_unref(&pkt);
+            sendOut(*_videoPkt);
         } else if (ret == AVERROR_EOF) {
             logger("recv pkt over");
             break;
@@ -239,4 +249,6 @@ void VideoEncoder::flushEncoder()
             break;
         }
     }
+
+    av_packet_unref(_videoPkt);
 }

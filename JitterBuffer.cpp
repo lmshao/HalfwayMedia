@@ -3,21 +3,19 @@
 //
 
 #include "JitterBuffer.h"
+
 #include <thread>
 
 FramePacket::FramePacket(AVPacket *packet) : _packet(nullptr)
 {
-    _packet = (AVPacket *)malloc(sizeof(AVPacket));
-    av_init_packet(_packet);
+    _packet = av_packet_alloc();
     av_packet_ref(_packet, packet);
 }
 
 FramePacket::~FramePacket()
 {
     if (_packet) {
-        av_packet_unref(_packet);
-        free(_packet);
-        _packet = nullptr;
+        av_packet_free(&_packet);
     }
 }
 
@@ -25,8 +23,7 @@ void FramePacketBuffer::pushPacket(std::shared_ptr<FramePacket> &framePacket)
 {
     std::unique_lock<std::mutex> lock(_queueMutex);
     _queue.push_back(framePacket);
-    if (_queue.size() == 1)
-        _queueCond.notify_one();
+    if (_queue.size() == 1) _queueCond.notify_one();
 }
 
 std::shared_ptr<FramePacket> FramePacketBuffer::popPacket(bool noWait)
@@ -90,16 +87,16 @@ void FramePacketBuffer::clear()
 }
 
 JitterBuffer::JitterBuffer(std::string name, SyncMode syncMode, JitterBufferListener *listener, int64_t maxBufferingMs)
-  : _name(name),
-    _syncMode(syncMode),
-    _isClosing(false),
-    _isRunning(false),
-    _lastInterval(5),
-    _isFirstFramePacket(true),
-    _listener(listener),
-    _syncTimestamp(AV_NOPTS_VALUE),
-    _firstTimestamp(AV_NOPTS_VALUE),
-    _maxBufferingMs(maxBufferingMs)
+    : _name(name),
+      _syncMode(syncMode),
+      _isClosing(false),
+      _isRunning(false),
+      _lastInterval(5),
+      _isFirstFramePacket(true),
+      _listener(listener),
+      _syncTimestamp(AV_NOPTS_VALUE),
+      _firstTimestamp(AV_NOPTS_VALUE),
+      _maxBufferingMs(maxBufferingMs)
 {
 }
 
@@ -168,14 +165,13 @@ void JitterBuffer::onTimeout(const boost::system::error_code &ec)
 {
     // Cyclic timing task
     if (!ec) {
-        if (!_isClosing)
-            handleJob();
+        if (!_isClosing) handleJob();
     }
 }
 
-void JitterBuffer::insert(AVPacket &pkt)
+void JitterBuffer::insert(AVPacket *pkt)
 {
-    std::shared_ptr<FramePacket> framePacket(new FramePacket(&pkt));
+    std::shared_ptr<FramePacket> framePacket(new FramePacket(pkt));
     _buffer.pushPacket(framePacket);
 }
 
@@ -211,8 +207,7 @@ int64_t JitterBuffer::getNextTime(AVPacket *pkt)
     diff = nextTimestamp - timestamp;
     if (diff < 0 || diff > 2000) {  // revised
         logger("(%s)timestamp rollback, %ld -> %ld", _name.c_str(), timestamp, nextTimestamp);
-        if (_syncMode == SYNC_MODE_MASTER)
-            _listener->onSyncTimeChanged(this, nextTimestamp);
+        if (_syncMode == SYNC_MODE_MASTER) _listener->onSyncTimeChanged(this, nextTimestamp);
 
         logger("(%s)reset first timestamp %ld -> %ld", _name.c_str(), _firstTimestamp, nextTimestamp);
         _firstTimestamp = nextTimestamp;
@@ -293,8 +288,7 @@ void JitterBuffer::handleJob()
             int64_t seekMs = backPacket->getAVPacket()->dts - _maxBufferingMs / 2;
             while (true) {
                 framePacket = _buffer.frontPacket();
-                if (!framePacket || framePacket->getAVPacket()->dts > seekMs)
-                    break;
+                if (!framePacket || framePacket->getAVPacket()->dts > seekMs) break;
 
                 _listener->onDeliverFrame(this, framePacket->getAVPacket());
                 _buffer.popPacket();

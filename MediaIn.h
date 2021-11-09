@@ -7,6 +7,7 @@
 
 #include <string>
 #include <thread>
+
 #include "MediaFramePipeline.h"
 
 extern "C" {
@@ -41,7 +42,7 @@ class MediaIn : public FrameSource {
     std::thread _thread;
 
     AVFormatContext *_avFmtCtx;
-    AVPacket _avPacket;
+    AVPacket *_avPacket;
 
     int _audioStreamIndex;
     FrameFormat _audioFormat;

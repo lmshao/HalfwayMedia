@@ -16,8 +16,7 @@ inline int findNALU(uint8_t *buf, int size, int *nal_start, int *nal_end, int *s
     *sc_len = 0;
 
     while (true) {
-        if (size < i + 3)
-            return -1; /* Did not find NAL start */
+        if (size < i + 3) return -1; /* Did not find NAL start */
 
         /* ( next_bits( 24 ) == {0, 0, 1} ) */
         if (buf[i] == 0 && buf[i + 1] == 0 && buf[i + 2] == 1) {
@@ -40,8 +39,7 @@ inline int findNALU(uint8_t *buf, int size, int *nal_start, int *nal_end, int *s
     *nal_start = i;
 
     /*( next_bits( 24 ) != {0, 0, 1} )*/
-    while ((size > i + 2) && (buf[i] != 0 || buf[i + 1] != 0 || buf[i + 2] != 1))
-        ++i;
+    while ((size > i + 2) && (buf[i] != 0 || buf[i + 1] != 0 || buf[i + 2] != 1)) ++i;
 
     if (size <= i + 2)
         *nal_end = size;
@@ -65,8 +63,7 @@ static int filterNALs(uint8_t *data, int size, const std::vector<int> &removeTyp
     int scLen = 0;
     int naluType;
 
-    if (!removeTypes.empty() && !passTypes.empty())
-        return -1;
+    if (!removeTypes.empty() && !passTypes.empty()) return -1;
 
     while (bufferLength > 0) {
         naluFoundLength = findNALU(bufferStart, bufferLength, &naluStartOffset, &naluEndOffset, &scLen);
@@ -79,7 +76,6 @@ static int filterNALs(uint8_t *data, int size, const std::vector<int> &removeTyp
         // drop removeTypes-type nalu
         if ((removeTypes.size() > 0 && find(removeTypes.begin(), removeTypes.end(), naluType) != removeTypes.end()) ||
             (passTypes.size() > 0 && find(passTypes.begin(), passTypes.end(), naluType) == passTypes.end())) {
-
             std::unique_ptr<uint8_t> bufferDelegate(bufferStart);
             memmove(bufferDelegate.get(), bufferDelegate.get() + naluStartOffset + naluFoundLength,
                     bufferLength - naluStartOffset - naluFoundLength);
@@ -127,8 +123,7 @@ LiveStreamIn::~LiveStreamIn()
 {
     logger("Closing %s", _url.c_str());
     _runing = false;
-    if (_timeoutHandler)
-        _timeoutHandler->stop();
+    if (_timeoutHandler) _timeoutHandler->stop();
     //    _thread.join();
 
     if (_videoJitterBuffer) {
@@ -195,8 +190,7 @@ void LiveStreamIn::onSyncTimeChanged(JitterBuffer *jitterBuffer, int64_t syncTim
             boost::posix_time::ptime mst = boost::posix_time::microsec_clock::local_time();
 
             _audioJitterBuffer->setSyncTime(syncTimestamp, mst);
-            if (_videoJitterBuffer)
-                _videoJitterBuffer->setSyncTime(syncTimestamp, mst);
+            if (_videoJitterBuffer) _videoJitterBuffer->setSyncTime(syncTimestamp, mst);
         }
     } else if (_videoJitterBuffer.get() == jitterBuffer) {
         logger("onSyncTimeChanged video, timestamp %ld ", syncTimestamp);
@@ -343,15 +337,12 @@ bool LiveStreamIn::reconnect()
         }
     }
 
-    if (_isFileInput)
-        _timstampOffset = _lastTimstamp + 1;
+    if (_isFileInput) _timstampOffset = _lastTimstamp + 1;
 
     av_read_play(_avFmtCtx);
 
-    if (_videoJitterBuffer)
-        _videoJitterBuffer->start();
-    if (_audioJitterBuffer)
-        _audioJitterBuffer->start();
+    if (_videoJitterBuffer) _videoJitterBuffer->start();
+    if (_audioJitterBuffer) _audioJitterBuffer->start();
 
     if (!strcmp(_avFmtCtx->iformat->name, "flv") && _videoStreamIndex != -1 &&
         _avFmtCtx->streams[_videoStreamIndex]->codecpar->codec_id == AV_CODEC_ID_H264) {
@@ -437,8 +428,7 @@ bool LiveStreamIn::connect()
                 _videoWidth = vStream->codecpar->width;
                 _videoHeight = vStream->codecpar->height;
 
-                if (!isRtsp())
-                    _videoJitterBuffer.reset(new JitterBuffer("video", JitterBuffer::SYNC_MODE_SLAVE, this));
+                if (!isRtsp()) _videoJitterBuffer.reset(new JitterBuffer("video", JitterBuffer::SYNC_MODE_SLAVE, this));
 
                 _videoTimeBase.num = 1;
                 _videoTimeBase.den = 90000;
@@ -553,10 +543,8 @@ void LiveStreamIn::receiveLoop()
         }
     }
 
-    memset(&_avPacket, 0, sizeof(_avPacket));
     while (_runing) {
         logger("-");
-
         if (_isFileInput) {
             if (_videoJitterBuffer && _videoJitterBuffer->sizeInMs() > 500) {
                 usleep(1000);
@@ -569,8 +557,8 @@ void LiveStreamIn::receiveLoop()
             }
         }
 
-        av_init_packet(&_avPacket);
-        ret = av_read_frame(_avFmtCtx, &_avPacket);
+        av_packet_unref(_avPacket);
+        ret = av_read_frame(_avFmtCtx, _avPacket);
         if (ret < 0) {
             logger("Error read frame, %s", ff_err2str(ret));
             if (isFileInput()) {
@@ -586,36 +574,36 @@ void LiveStreamIn::receiveLoop()
             continue;
         }
 
-        logger("stream_index = %d", _avPacket.stream_index);
-        if (_avPacket.stream_index == _videoStreamIndex) {
+        logger("stream_index = %d", _avPacket->stream_index);
+        if (_avPacket->stream_index == _videoStreamIndex) {
             AVStream *vStream = _avFmtCtx->streams[_videoStreamIndex];
-            _avPacket.dts = av_rescale_q(_avPacket.dts, vStream->time_base, _msTimeBase) + _timestampOffset;
-            _avPacket.pts = av_rescale_q(_avPacket.dts, vStream->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket->dts = av_rescale_q(_avPacket->dts, vStream->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket->pts = av_rescale_q(_avPacket->dts, vStream->time_base, _msTimeBase) + _timestampOffset;
 
-            logger("Receive video frame packet, dts %ld, size %d", _avPacket.dts, _avPacket.size);
-            if (filterVBS(vStream, &_avPacket)) {
-                filterPS(vStream, &_avPacket);
+            logger("Receive video frame packet, dts %ld, size %d", _avPacket->dts, _avPacket->size);
+            if (filterVBS(vStream, _avPacket)) {
+                filterPS(vStream, _avPacket);
 
                 if (_videoJitterBuffer)
                     _videoJitterBuffer->insert(_avPacket);
                 else
-                    deliverVideoFrame(&_avPacket);
+                    deliverVideoFrame(_avPacket);
             }
-        } else if (_avPacket.stream_index == _audioStreamIndex) {
+        } else if (_avPacket->stream_index == _audioStreamIndex) {
             AVStream *aStream = _avFmtCtx->streams[_audioStreamIndex];
-            _avPacket.dts = av_rescale_q(_avPacket.dts, aStream->time_base, _msTimeBase) + _timestampOffset;
-            _avPacket.pts = av_rescale_q(_avPacket.dts, aStream->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket->dts = av_rescale_q(_avPacket->dts, aStream->time_base, _msTimeBase) + _timestampOffset;
+            _avPacket->pts = av_rescale_q(_avPacket->dts, aStream->time_base, _msTimeBase) + _timestampOffset;
 
-            logger("Receive audio frame packet, dts %ld, duration %ld, size %d", _avPacket.dts, _avPacket.duration,
-                   _avPacket.size);
+            logger("Receive audio frame packet, dts %ld, duration %ld, size %d", _avPacket->dts, _avPacket->duration,
+                   _avPacket->size);
 
             if (_audioJitterBuffer)
                 _audioJitterBuffer->insert(_avPacket);
             else
-                deliverAudioFrame(&_avPacket);
+                deliverAudioFrame(_avPacket);
         }
-        _lastTimestamp = _avPacket.dts;
-        av_packet_unref(&_avPacket);
+        _lastTimestamp = _avPacket->dts;
+        av_packet_unref(_avPacket);
     }
 
     logger("Thread exited!");
@@ -628,19 +616,16 @@ void LiveStreamIn::checkVideoBitstream(AVStream *st, const AVPacket *pkt)
     const char *filter_name = nullptr;
     const AVBitStreamFilter *bsf;
 
-    if (!_needCheckVBS)
-        return;
+    if (!_needCheckVBS) return;
 
     _needApplyVBSF = false;
     switch (st->codecpar->codec_id) {
         case AV_CODEC_ID_H264:
-            if (pkt->size < 5 || AV_RB32(pkt->data) == 0x0000001 || AV_RB24(pkt->data) == 0x000001)
-                break;
+            if (pkt->size < 5 || AV_RB32(pkt->data) == 0x0000001 || AV_RB24(pkt->data) == 0x000001) break;
             filter_name = "h264_mp4toannexb";
             break;
         case AV_CODEC_ID_HEVC:
-            if (pkt->size < 5 || AV_RB32(pkt->data) == 0x0000001 || AV_RB24(pkt->data) == 0x000001)
-                break;
+            if (pkt->size < 5 || AV_RB32(pkt->data) == 0x0000001 || AV_RB24(pkt->data) == 0x000001) break;
             filter_name = "hevc_mp4toannexb";
             break;
         default:
@@ -689,8 +674,7 @@ bool LiveStreamIn::filterVBS(AVStream *st, AVPacket *pkt)
     int ret;
 
     checkVideoBitstream(st, pkt);
-    if (!_needApplyVBSF)
-        return true;
+    if (!_needApplyVBSF) return true;
 
     if (!_vbsf) {
         logger("Invalid vbs filter");
@@ -732,9 +716,8 @@ bool LiveStreamIn::parseAVCC(AVPacket *pkt)
     uint8_t *data;
     int size;
 
-    data = av_packet_get_side_data(&_avPacket, AV_PKT_DATA_NEW_EXTRADATA, &size);
-    if (data == nullptr)
-        return true;
+    data = av_packet_get_side_data(_avPacket, AV_PKT_DATA_NEW_EXTRADATA, &size);
+    if (data == nullptr) return true;
 
     //    AVCC structure
     //    bits
@@ -854,8 +837,7 @@ bool LiveStreamIn::parseAVCC(AVPacket *pkt)
 
 bool LiveStreamIn::filterPS(AVStream *st, AVPacket *pkt)
 {
-    if (!_enableVideoExtradata)
-        return true;
+    if (!_enableVideoExtradata) return true;
 
     parseAVCC(pkt);
     if (_spsPpsBuffer && _spsPpsBufferLength > 0) {

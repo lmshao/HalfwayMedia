@@ -96,6 +96,7 @@ class MediaOut : public FrameDestination {
     AVFormatContext *_avFmtCtx;
     AVStream *_audioStream;
     AVStream *_videoStream;
+    AVPacket *_packet;
 
     FILE *_outFile;
     std::thread _thread;

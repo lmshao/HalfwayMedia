@@ -157,7 +157,9 @@ MediaOut::MediaOut(const std::string &url, bool hasAudio, bool hasVideo)
 
 MediaOut::~MediaOut()
 {
-    logger("~");
+    if (_packet) {
+        av_packet_free(&_packet);
+    }
 };
 
 void MediaOut::onFrame(const Frame &frame)
@@ -311,7 +313,6 @@ bool MediaOut::connect()
     }
 
     if (!(_avFmtCtx->oformat->flags & AVFMT_NOFILE)) {
-        logger("");
         int ret = avio_open(&_avFmtCtx->pb, _url.c_str(), AVIO_FLAG_WRITE);
         if (ret < 0) {
             logger("Cannot open avio, %s", ff_err2str(ret));
@@ -454,7 +455,9 @@ bool MediaOut::writeHeader()
 bool MediaOut::writeFrame(AVStream *stream, const std::shared_ptr<MediaFrame> &mediaFrame)
 {
     int ret;
-    AVPacket pkt;
+    if (!_packet) {
+        _packet = av_packet_alloc();
+    }
 
     if (mediaFrame == nullptr) {
         return false;
@@ -464,24 +467,24 @@ bool MediaOut::writeFrame(AVStream *stream, const std::shared_ptr<MediaFrame> &m
         return false;
     }
 
-    av_init_packet(&pkt);
-    pkt.data = mediaFrame->_frame.payload;
-    pkt.size = mediaFrame->_frame.length;
-    pkt.dts = (int64_t)(mediaFrame->_timestamp / (av_q2d(stream->time_base) * 1000));
-    pkt.pts = pkt.dts;
-    pkt.duration = (int64_t)(mediaFrame->_duration / (av_q2d(stream->time_base) * 1000));
-    pkt.stream_index = stream->index;
+    av_packet_unref(_packet);
+    _packet->data = mediaFrame->_frame.payload;
+    _packet->size = mediaFrame->_frame.length;
+    _packet->dts = (int64_t)(mediaFrame->_timestamp / (av_q2d(stream->time_base) * 1000));
+    _packet->pts = _packet->dts;
+    _packet->duration = (int64_t)(mediaFrame->_duration / (av_q2d(stream->time_base) * 1000));
+    _packet->stream_index = stream->index;
 
     if (isVideoFrame(mediaFrame->_frame)) {
         if (mediaFrame->_frame.additionalInfo.video.isKeyFrame) {
-            pkt.flags |= AV_PKT_FLAG_KEY;
+            _packet->flags |= AV_PKT_FLAG_KEY;
             // TODO:
         }
     }
 
     logger("Send frame");
 
-    ret = av_interleaved_write_frame(_avFmtCtx, &pkt);
+    ret = av_interleaved_write_frame(_avFmtCtx, _packet);
     if (ret < 0) {
         logger("Cannot write frame, %s", ff_err2str(ret));
         return false;

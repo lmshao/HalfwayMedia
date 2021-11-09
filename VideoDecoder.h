@@ -22,7 +22,7 @@ class VideoDecoder : public FrameSource, public FrameDestination {
   private:
     AVCodecContext *_decCtx;
     AVFrame *_decFrame;
-    AVPacket _packet{};
+    AVPacket *_packet;
     std::shared_ptr<uint8_t[]> _i420Buffer;
     int _i420BufferLength;
 };

@@ -5,16 +5,17 @@
 #ifndef HALFWAYLIVE_JITTERBUFFER_H
 #define HALFWAYLIVE_JITTERBUFFER_H
 
-#include "Utils.h"
-#include <iostream>
-#include <boost/asio.hpp>
-
 #include <sys/time.h>
-#include <deque>
+
 #include <atomic>
-#include <mutex>
+#include <boost/asio.hpp>
 #include <condition_variable>
+#include <deque>
+#include <iostream>
+#include <mutex>
 #include <thread>
+
+#include "Utils.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -76,7 +77,7 @@ class JitterBuffer {
     void drain();
     uint32_t sizeInMs();
 
-    void insert(AVPacket &pkt);
+    void insert(AVPacket *pkt);
     void setSyncTime(int64_t &syncTimestamp, boost::posix_time::ptime &syncLocalTime);
 
   protected:

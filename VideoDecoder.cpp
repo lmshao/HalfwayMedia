@@ -3,7 +3,7 @@
 //
 
 #include "VideoDecoder.h"
-VideoDecoder::VideoDecoder() : _decCtx(nullptr), _decFrame(nullptr), _i420BufferLength(0) {}
+VideoDecoder::VideoDecoder() : _decCtx(nullptr), _decFrame(nullptr), _packet(nullptr), _i420BufferLength(0) {}
 
 VideoDecoder::~VideoDecoder()
 {
@@ -11,9 +11,12 @@ VideoDecoder::~VideoDecoder()
         av_frame_free(&_decFrame);
     }
 
+    if (_packet) {
+        av_packet_free(&_packet);
+    }
+
     if (_decCtx) {
-        avcodec_close(_decCtx);
-        _decCtx = nullptr;
+        avcodec_free_context(&_decCtx);
     }
 }
 
@@ -71,7 +74,12 @@ bool VideoDecoder::init(FrameFormat format)
         return false;
     }
 
-    memset(&_packet, 0, sizeof(_packet));
+    _packet = av_packet_alloc();
+    if (!_packet) {
+        logger("Could not allocate av packet");
+        return false;
+    }
+
     return true;
 }
 
@@ -79,11 +87,11 @@ void VideoDecoder::onFrame(const Frame &frame)
 {
     int ret;
 
-    av_init_packet(&_packet);
-    _packet.data = frame.payload;
-    _packet.size = frame.length;
+    av_packet_unref(_packet);
+    _packet->data = frame.payload;
+    _packet->size = frame.length;
 
-    ret = avcodec_send_packet(_decCtx, &_packet);
+    ret = avcodec_send_packet(_decCtx, _packet);
     if (ret < 0) {
         logger("Error while send packet, %s", ff_err2str(ret));
         return;

@@ -10,9 +10,9 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libswresample/swresample.h>
-#include <libavutil/avutil.h>
 #include <libavutil/audio_fifo.h>
+#include <libavutil/avutil.h>
+#include <libswresample/swresample.h>
 }
 
 class AudioDecoder : public FrameSource, public FrameDestination {
@@ -38,7 +38,7 @@ class AudioDecoder : public FrameSource, public FrameDestination {
 
     AVCodecContext *_decCtx;
     AVFrame *_decFrame;
-    AVPacket _packet{};
+    AVPacket *_packet;
 
     bool _needResample;
     struct SwrContext *_swrCtx;

@@ -6,8 +6,8 @@
 extern "C" {
 #include <libavutil/time.h>
 }
-#include <unistd.h>
 #include <assert.h>
+#include <unistd.h>
 
 static inline int64_t timeRescale(uint32_t time, AVRational in, AVRational out)
 {
@@ -52,8 +52,7 @@ bool MediaFileIn::open()
 
 bool MediaFileIn::checkStream()
 {
-    if (!_avFmtCtx)
-        return false;
+    if (!_avFmtCtx) return false;
 #if 0
     for (int i = 0; i < _avFmtCtx->nb_streams; ++i) {
         AVCodecParameters *codecPar = _avFmtCtx->streams[i]->codecpar;
@@ -196,33 +195,24 @@ void MediaFileIn::deliverAudioFrame(AVPacket *pkt)
 
 void MediaFileIn::start()
 {
-    logger("");
-    memset(&_avPacket, 0, sizeof(_avPacket));
-
     AVStream *video_st = _avFmtCtx->streams[_videoStreamIndex];
-    AVRational time_base_q = { 1, AV_TIME_BASE };
+    AVRational time_base_q = {1, AV_TIME_BASE};
     int64_t start_time = av_gettime();
     int64_t pts_time;
     int64_t now_time;
 
-    av_init_packet(&_avPacket);
-    _avPacket.data = nullptr;
-    _avPacket.size = 0;
+    av_packet_unref(_avPacket);
 
     AVPacket spsPacket, ppsPacket, tmpPacket;
     int cout = 0;
 
-    //    FILE *fp;
-    //    fp = fopen("1.h264", "wb");
-
-    uint8_t startCode[4] = { 0x00, 0x00, 0x00, 0x01 };
+    uint8_t startCode[4] = {0x00, 0x00, 0x00, 0x01};
 
     bool sendSpsPps = false;
 
-    while (_running && av_read_frame(_avFmtCtx, &_avPacket) == 0) {
-        logger("\n");
-        if (_avPacket.stream_index == _videoStreamIndex) {  // pakcet is video
-            logger("Get video frame packet, dts %ld, size %d", _avPacket.dts, _avPacket.size);
+    while (_running && av_read_frame(_avFmtCtx, _avPacket) == 0) {
+        if (_avPacket->stream_index == _videoStreamIndex) {  // pakcet is video
+            logger("Get video frame packet, dts %ld, size %d", _avPacket->dts, _avPacket->size);
 
             if (!sendSpsPps) {
                 int spsLength = 0;
@@ -239,45 +229,37 @@ void MediaFileIn::start()
                 memcpy(spsPacket.data + 4, ex + 8, spsLength);
                 deliverVideoFrame(&spsPacket);
 
-                //                fwrite(startCode, 1, 4, fp);
-                //                fwrite(ex + 8, 1, spsLength, fp);
-
                 memcpy(ppsPacket.data, startCode, 4);
                 memcpy(ppsPacket.data + 4, ex + 8 + spsLength + 2 + 1, ppsLength);
                 deliverVideoFrame(&ppsPacket);
 
-                //                fwrite(startCode, 1, 4, fp);
-                //                fwrite(ex + 8 + spsLength + 2 + 1, 1, ppsLength, fp);
                 cout = 2;
                 sendSpsPps = true;
             }
 
             int nalLength = 0;
-            uint8_t *data = _avPacket.data;
-            while (data < _avPacket.data + _avPacket.size) {
+            uint8_t *data = _avPacket->data;
+            while (data < _avPacket->data + _avPacket->size) {
                 nalLength = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
                 if (nalLength > 0) {
                     memcpy(data, startCode, 4);
-                    tmpPacket = _avPacket;
+                    tmpPacket = *_avPacket;
                     tmpPacket.data = data;
                     tmpPacket.size = nalLength + 4;
                     logger("send [%d], len = %d", cout++, tmpPacket.size);
                     dumpHex(data + 4, 10);
                     deliverVideoFrame(&tmpPacket);
-
-                    //                    fwrite(startCode, 1, 4, fp);
-                    //                    fwrite(data + 4, 1, nalLength, fp);
                 }
                 data = data + 4 + nalLength;
             }
 
-            pts_time = av_rescale_q(_avPacket.pts, video_st->time_base, time_base_q);
+            pts_time = av_rescale_q(_avPacket->pts, video_st->time_base, time_base_q);
             now_time = av_gettime() - start_time;
             if (pts_time - now_time > 0) {
                 av_usleep(pts_time - now_time);
                 logger("sleep %ld", (pts_time - now_time));
             }
-        } else if (_avPacket.stream_index == _audioStreamIndex) {
+        } else if (_avPacket->stream_index == _audioStreamIndex) {
             logger("audio");
             //            AVStream *audio_st = _avFmtCtx->streams[_audioStreamIndex];
             //            _avPacket.dts = timeRescale(_avPacket.dts, audio_st->time_base, _msTimeBase) +
@@ -293,8 +275,8 @@ void MediaFileIn::start()
             //
             //            logger("sleep %ld", (pts_time - now_time));
         }
-        _lastTimstamp = _avPacket.dts;
-        av_packet_unref(&_avPacket);
+        _lastTimstamp = _avPacket->dts;
+        av_packet_unref(_avPacket);
     }
 
     //    fclose(fp);

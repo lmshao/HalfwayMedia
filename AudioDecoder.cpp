@@ -5,20 +5,20 @@
 #include "AudioDecoder.h"
 
 AudioDecoder::AudioDecoder()
-  : _valid(false),
-    _decCtx(nullptr),
-    _decFrame(nullptr),
-    _needResample(false),
-    _swrCtx(nullptr),
-    _swrSamplesData(nullptr),
-    _swrSamplesLinesize(0),
-    _swrSamplesCount(0),
-    _swrInitialised(false),
-    _outSampleFormat(AV_SAMPLE_FMT_S16),
-    _outSampleRate(48000),
-    _outChannels(2),
-    _timestamp(0),
-    _outFormat(FRAME_FORMAT_PCM_48000_2)
+    : _valid(false),
+      _decCtx(nullptr),
+      _decFrame(nullptr),
+      _needResample(false),
+      _swrCtx(nullptr),
+      _swrSamplesData(nullptr),
+      _swrSamplesLinesize(0),
+      _swrSamplesCount(0),
+      _swrInitialised(false),
+      _outSampleFormat(AV_SAMPLE_FMT_S16),
+      _outSampleRate(48000),
+      _outChannels(2),
+      _timestamp(0),
+      _outFormat(FRAME_FORMAT_PCM_48000_2)
 {
     logger("");
 }
@@ -31,6 +31,10 @@ AudioDecoder::~AudioDecoder()
     }
     if (_audioFrame) {
         av_frame_free(&_audioFrame);
+    }
+
+    if (_packet) {
+        av_packet_free(&_packet);
     }
 
     if (_swrCtx) {
@@ -86,12 +90,12 @@ void AudioDecoder::onFrame(const Frame &frame)
         }
     }
 
-    av_init_packet(&_packet);
-    _packet.data = frame.payload;
-    _packet.size = frame.length;
+    av_packet_unref(_packet);
+    _packet->data = frame.payload;
+    _packet->size = frame.length;
 
     int ret;
-    ret = avcodec_send_packet(_decCtx, &_packet);
+    ret = avcodec_send_packet(_decCtx, _packet);
     if (ret < 0) {
         logger("Error while send packet, %s", ff_err2str(ret));
         return;
@@ -140,14 +144,6 @@ void AudioDecoder::onFrame(const Frame &frame)
 
             DUMP_HEX(outFrame.payload, 10);
             deliverFrame(outFrame);
-
-            // ffplay -f s16le -ac 2 -ar 48000 .\decoded.pcm
-            FILE *file = fopen("decoded.pcm", "a+");
-            if (file == nullptr)
-                return;
-            fwrite(outFrame.payload, 1, outFrame.length, file);
-            fclose(file);
-
         } else {
             logger("_outFormat != FRAME_FORMAT_PCM_48000_2");
         }
@@ -203,11 +199,16 @@ bool AudioDecoder::initDecoder(FrameFormat format, uint32_t sampleRate, uint32_t
         return false;
     }
 
-    memset(&_packet, 0, sizeof(_packet));
-
     _inSampleFormat = _decCtx->sample_fmt;
     _inSampleRate = _decCtx->sample_rate;
     _inChannels = _decCtx->channels;
+
+    _packet = av_packet_alloc();
+    if (!_packet) {
+        logger("Could not allocate av packet");
+        return false;
+    }
+
     return true;
 }
 bool AudioDecoder::initResampler(enum AVSampleFormat inSampleFormat, int inSampleRate, int inChannels,
@@ -293,8 +294,7 @@ bool AudioDecoder::resampleFrame(AVFrame *frame, uint8_t **pOutData, int *pOutNb
     int ret;
     int dstNbSamples;
 
-    if (!_swrCtx)
-        return false;
+    if (!_swrCtx) return false;
 
     // compute destination number of samples
     dstNbSamples = av_rescale_rnd(swr_get_delay(_swrCtx, _inSampleRate) + frame->nb_samples, _outSampleRate,
@@ -332,8 +332,7 @@ bool AudioDecoder::addFrameToFifo(AVFrame *frame)
     int samplesPerChannel;
 
     if (_needResample) {
-        if (!resampleFrame(frame, &data, &samplesPerChannel))
-            return false;
+        if (!resampleFrame(frame, &data, &samplesPerChannel)) return false;
     } else {
         data = (uint8_t *)frame->data;
         samplesPerChannel = frame->nb_samples;

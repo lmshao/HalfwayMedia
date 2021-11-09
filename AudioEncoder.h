@@ -40,6 +40,7 @@ class AudioEncoder : public FrameSource, public FrameDestination {
     AVCodecContext *_audioEnc;
     AVAudioFifo *_audioFifo;
     AVFrame *_audioFrame;
+    AVPacket *_audioPkt;
 };
 
 #endif  // HALFWAYLIVE_AUDIOENCODER_H

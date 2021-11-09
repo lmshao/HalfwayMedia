@@ -21,13 +21,6 @@ static enum AVSampleFormat getCodecPreferedSampleFmt(AVCodec *codec, enum AVSamp
     return codec->sample_fmts[0];
 }
 
-// inline int64_t currentTime()
-//{
-//     timeval time;
-//     gettimeofday(&time, nullptr);
-//     return ((time.tv_sec * 1000) + (time.tv_usec / 1000));
-// }
-
 AudioEncoder::AudioEncoder(FrameFormat format)
     : _format(format),
       _timestampOffset(0),
@@ -36,9 +29,9 @@ AudioEncoder::AudioEncoder(FrameFormat format)
       _sampleRate(48000),
       _audioEnc(nullptr),
       _audioFifo(nullptr),
-      _audioFrame(nullptr)
+      _audioFrame(nullptr),
+      _audioPkt(nullptr)
 {
-    logger("");
 }
 
 AudioEncoder::~AudioEncoder()
@@ -47,6 +40,10 @@ AudioEncoder::~AudioEncoder()
 
     if (_audioFrame) {
         av_frame_free(&_audioFrame);
+    }
+
+    if (_audioPkt) {
+        av_packet_free(&_audioPkt);
     }
 
     if (_audioFifo) {
@@ -59,12 +56,12 @@ AudioEncoder::~AudioEncoder()
         _audioEnc = nullptr;
     }
 
+    _valid = false;
     _format = FRAME_FORMAT_UNKNOWN;
 }
 
 void AudioEncoder::onFrame(const Frame &frame)
 {
-    logger("");
     addAudioFrame(frame);
 }
 
@@ -75,7 +72,6 @@ bool AudioEncoder::init()
     }
 
     _valid = true;
-
     return true;
 }
 
@@ -91,16 +87,13 @@ bool AudioEncoder::addAudioFrame(const Frame &audioFrame)
 
 void AudioEncoder::flush()
 {
-    AVPacket pkt;
-    av_init_packet(&pkt);
-
-    for (;;) {
+    while (_valid) {
         avcodec_send_frame(_audioEnc, nullptr);
-        int ret = avcodec_receive_packet(_audioEnc, &pkt);
+        int ret = avcodec_receive_packet(_audioEnc, _audioPkt);
         if (ret == 0) {
             logger("get pkg in encoder");
-            sendOut(pkt);
-            av_packet_unref(&pkt);
+            sendOut(*_audioPkt);
+            av_packet_unref(_audioPkt);
         } else if (ret == AVERROR_EOF) {
             logger("complete encoding\n");
             break;
@@ -109,6 +102,7 @@ void AudioEncoder::flush()
             break;
         }
     }
+    logger("flush audio encoder over");
 }
 
 bool AudioEncoder::initEncoder(const FrameFormat format)
@@ -197,6 +191,16 @@ bool AudioEncoder::initEncoder(const FrameFormat format)
         goto fail;
     }
 
+    if (_audioPkt) {
+        av_packet_free(&_audioPkt);
+    }
+
+    _audioPkt = av_packet_alloc();
+    if (!_audioPkt) {
+        logger("Cannot allocate audio packet");
+        goto fail;
+    }
+
     logger("Audio encoder frame_size %d, sample_rate %d, channels %d", _audioEnc->frame_size, _audioEnc->sample_rate,
            _audioEnc->channels);
 
@@ -204,9 +208,12 @@ bool AudioEncoder::initEncoder(const FrameFormat format)
     return true;
 
 fail:
+    if (_audioPkt) {
+        av_packet_free(&_audioPkt);
+    }
+
     if (_audioFrame) {
         av_frame_free(&_audioFrame);
-        _audioFrame = nullptr;
     }
 
     if (_audioFifo) {
@@ -214,10 +221,8 @@ fail:
         _audioFifo = nullptr;
     }
 
-    if (_audioEnc) {
-        avcodec_close(_audioEnc);
-        _audioEnc = nullptr;
-    }
+    avcodec_free_context(&_audioEnc);
+    _audioEnc = nullptr;
 
     return false;
 }
@@ -254,8 +259,7 @@ void AudioEncoder::encode()
 {
     logger("encoder");
     int ret = 0, n = 0, fifo_size = 0;
-    AVPacket pkt;
-    memset(&pkt, 0, sizeof(pkt));
+
     while (true) {
         fifo_size = av_audio_fifo_size(_audioFifo);
         if (fifo_size < _audioEnc->frame_size) {
@@ -274,17 +278,16 @@ void AudioEncoder::encode()
             return;
         }
 
-        av_init_packet(&pkt);
-        ret = avcodec_receive_packet(_audioEnc, &pkt);
+        ret = avcodec_receive_packet(_audioEnc, _audioPkt);
         if (ret < 0) {
             logger("avcodec_receive_packet, %s", ff_err2str(ret));
             return;
         }
 
-        logger("after encoding ffmpeg pts: %ld\n", pkt.dts);
+        logger("after encoding ffmpeg pts: %ld\n", _audioPkt->dts);
 
-        sendOut(pkt);
-        av_packet_unref(&pkt);
+        sendOut(*_audioPkt);
+        av_packet_unref(_audioPkt);
     }
 }
 
