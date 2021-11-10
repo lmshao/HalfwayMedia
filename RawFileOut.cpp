@@ -9,9 +9,9 @@
 RawFileOut::RawFileOut(const std::string &filename, bool appendMode)
 {
     if (appendMode) {
-        _file = fopen(filename.c_str(), "w");
-    } else {
         _file = fopen(filename.c_str(), "a");
+    } else {
+        _file = fopen(filename.c_str(), "w");
     }
 }
 

@@ -40,6 +40,11 @@ bool RawFileIn::open()
         _file = fopen(_url.c_str(), "rb");
     }
 
+    if (!_file) {
+        logger("error open %s", _url.c_str());
+        return false;
+    }
+
     _runing = true;
     return true;
 }
