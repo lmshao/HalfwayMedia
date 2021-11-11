@@ -8,6 +8,8 @@
 #include <stdint.h>
 #define logger(fmt, args...) print(__FILE__, __LINE__, __PRETTY_FUNCTION__, fmt, ##args)
 
+// #define logger(fmt, args...)
+
 void print(const char *fname, int line, const char *func, const char *fmt, ...);
 
 char *ff_err2str(int errRet);
@@ -18,6 +20,14 @@ char *ff_err2str(int errRet);
         dumpHex(x, y);      \
     }
 
+// #define DUMP_HEX(x, y)
+
 char *dumpHex(const uint8_t *ptr, int lenght);
+
+void setTimestampOffset(uint32_t offset);
+
+int64_t startTime();  // ms
+
+int64_t currentTime();  // ms
 
 #endif  // HALFWAYLIVE_UTILS_H

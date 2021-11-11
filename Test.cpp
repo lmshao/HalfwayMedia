@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "AudioEncoder.h"
+#include "ImageConversion.h"
 #include "MediaOut.h"
 #include "RawFileIn.h"
 #include "RawFileOut.h"
@@ -23,11 +24,12 @@ int audio_encoding_pcm_s16le_to_aac()
 
     RawFileInfo info;
     info.type = "audio";
-    info.media.audio.sample_fmt = AV_SAMPLE_FMT_S16;
+    info.media.audio.sample_fmt = "s16le";
     info.media.audio.channel = 2;
     info.media.audio.sample_rate = 48000;
     mediaIn.reset(new RawFileIn("../Sample/sample-audio-48k-ac2-s16le.pcm", info));
-    if (!mediaIn->open()) return false;
+    if (!mediaIn->open())
+        return false;
 
     audioEncoder.reset(new AudioEncoder(FRAME_FORMAT_AAC_48000_2));
 
@@ -42,12 +44,14 @@ int audio_encoding_pcm_s16le_to_aac()
     mediaIn->addAudioDestination(audioEncoder.get());
     mediaIn->start();
 
-    if (mediaIn != nullptr) mediaIn->waitThread();
+    if (mediaIn != nullptr)
+        mediaIn->waitThread();
 
     audioEncoder->flush();
 
     sleep(1);
-    if (mediaOut != nullptr) mediaOut->waitThread();
+    if (mediaOut != nullptr)
+        mediaOut->waitThread();
     return 0;
 }
 
@@ -60,13 +64,14 @@ int video_encoding_yuv420_to_h264()
 
     RawFileInfo info;
     info.type = "video";
-    info.media.video.pix_fmt = AV_PIX_FMT_YUV420P;
+    info.media.video.pix_fmt = "yuv420";
     info.media.video.height = 1080;
     info.media.video.width = 1920;
     info.media.video.framerate = 24;
     mediaIn.reset(new RawFileIn("../Sample/sample-1080p-yuv420p.yuv", info));
 
-    if (!mediaIn->open()) return false;
+    if (!mediaIn->open())
+        return -1;
 
     rawFileOut.reset(new RawFileOut(ts + ".h264"));
 
@@ -85,5 +90,77 @@ int video_encoding_yuv420_to_h264()
     if (mediaOut != nullptr) {
         mediaOut->waitThread();
     }
+    return 0;
+}
+
+int video_encoding_bgra32_to_h264()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<MediaOut> mediaOut;
+    std::shared_ptr<VideoEncoder> videoEncoder;
+    std::shared_ptr<RawFileOut> rawFileOut;
+
+    RawFileInfo info;
+    info.type = "video";
+    info.media.video.pix_fmt = "bgra";
+    info.media.video.height = 1080;
+    info.media.video.width = 1920;
+    info.media.video.framerate = 24;
+    mediaIn.reset(new RawFileIn("../Sample/sample-1080p-bgra.rgb", info));
+
+    if (!mediaIn->open())
+        return -1;
+
+    rawFileOut.reset(new RawFileOut(ts + ".h264"));
+
+    videoEncoder.reset(new VideoEncoder(FRAME_FORMAT_H264));
+    videoEncoder->addVideoDestination(rawFileOut.get());
+
+    mediaIn->addVideoDestination(videoEncoder.get());
+
+    mediaIn->start();
+
+    if (mediaIn != nullptr) {
+        mediaIn->waitThread();
+    }
+
+    sleep(1);
+    if (mediaOut != nullptr) {
+        mediaOut->waitThread();
+    }
+    return 0;
+}
+
+int video_converison_bgra32_to_yuv420()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<ImageConversion> imageConversion;
+    std::shared_ptr<RawFileOut> rawFileOut;
+
+    RawFileInfo info;
+    info.type = "video";
+    info.media.video.pix_fmt = "bgra";
+    info.media.video.height = 1080;
+    info.media.video.width = 1920;
+    info.media.video.framerate = 24;
+    mediaIn.reset(new RawFileIn("../Sample/sample-1080p-bgra.rgb", info));
+
+    if (!mediaIn->open())
+        return -1;
+
+    rawFileOut.reset(new RawFileOut(ts + ".yuv"));
+
+    imageConversion.reset(new ImageConversion());
+    imageConversion->addVideoDestination(rawFileOut.get());
+
+    mediaIn->addVideoDestination(imageConversion.get());
+    mediaIn->start();
+
+    if (mediaIn != nullptr) {
+        mediaIn->waitThread();
+    }
+
+    sleep(10);
+
     return 0;
 }

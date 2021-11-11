@@ -14,6 +14,7 @@ enum FrameFormat {
     FRAME_FORMAT_UNKNOWN = 0,
 
     FRAME_FORMAT_I420 = 100,
+    FRAME_FORMAT_BGRA,
 
     FRAME_FORMAT_VP8 = 200,
     FRAME_FORMAT_VP9,
@@ -23,6 +24,8 @@ enum FrameFormat {
     FRAME_FORMAT_MSDK = 300,
 
     FRAME_FORMAT_PCM_48000_2 = 800,
+    FRAME_FORMAT_PCM_48000_2_S16,  // s16le pcm
+    FRAME_FORMAT_PCM_48000_2_FLT,  // f32le pcm
 
     FRAME_FORMAT_PCMU = 900,
     FRAME_FORMAT_PCMA,
@@ -174,8 +177,9 @@ inline bool isAudioFrame(const Frame &frame)
 
 inline bool isVideoFrame(const Frame &frame)
 {
-    return frame.format == FRAME_FORMAT_I420 || frame.format == FRAME_FORMAT_MSDK || frame.format == FRAME_FORMAT_VP8 ||
-           frame.format == FRAME_FORMAT_VP9 || frame.format == FRAME_FORMAT_H264 || frame.format == FRAME_FORMAT_H265;
+    return frame.format == FRAME_FORMAT_I420 || frame.format == FRAME_FORMAT_BGRA ||
+           frame.format == FRAME_FORMAT_MSDK || frame.format == FRAME_FORMAT_VP8 || frame.format == FRAME_FORMAT_VP9 ||
+           frame.format == FRAME_FORMAT_H264 || frame.format == FRAME_FORMAT_H265;
 }
 
 class FrameDestination;

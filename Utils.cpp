@@ -3,9 +3,12 @@
 //
 
 #include "Utils.h"
-#include <stdio.h>
+
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
+
 extern "C" {
 #include <libavutil/error.h>
 }
@@ -43,4 +46,33 @@ char *dumpHex(const uint8_t *ptr, int length)
 
     printf("%s\n", dd);
     return dd;
+}
+
+static int64_t startTimestamp = 0;
+static bool initTimeFlag = false;
+
+void initStartTimestamp()
+{
+    static timeval time{};
+    gettimeofday(&time, nullptr);
+    startTimestamp = ((time.tv_sec * 1000) + (time.tv_usec / 1000));
+    initTimeFlag = true;
+}
+
+int64_t startTime()
+{
+    if (!initTimeFlag) {
+        initStartTimestamp();
+    }
+    return startTimestamp;
+}
+
+int64_t currentTime()
+{
+    if (!initTimeFlag) {
+        initStartTimestamp();
+    }
+    static timeval time{};
+    gettimeofday(&time, nullptr);
+    return ((time.tv_sec * 1000) + (time.tv_usec / 1000));
 }

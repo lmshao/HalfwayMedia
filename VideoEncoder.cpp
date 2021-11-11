@@ -26,7 +26,8 @@ VideoEncoder::~VideoEncoder()
 {
     flushEncoder();
 
-    if (!_valid) return;
+    if (!_valid)
+        return;
 
     if (_videoFrame) {
         av_frame_free(&_videoFrame);
@@ -157,7 +158,7 @@ bool VideoEncoder::initEncoder(FrameFormat format)
     _videoEnc->time_base = {1, 24};
     _videoEnc->framerate = {24, 1};
     _videoEnc->max_b_frames = 0;
-    _videoEnc->pix_fmt = AV_PIX_FMT_YUV420P;
+    _videoEnc->pix_fmt = AV_PIX_FMT_YUV420P;  // AV_PIX_FMT_BGRA
 
     if (codec->id == AV_CODEC_ID_H264) {
         av_opt_set(_videoEnc->priv_data, "tune", "zerolatency", 0);  // no delay

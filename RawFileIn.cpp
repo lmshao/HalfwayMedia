@@ -4,6 +4,7 @@
 
 #include "RawFileIn.h"
 
+#include <string.h>
 #include <unistd.h>
 
 #include "AudioTime.h"
@@ -14,7 +15,13 @@ RawFileIn::RawFileIn(const std::string &filename, const RawFileInfo &info, bool 
     if (info.type == "video") {
         _videoHeight = info.media.video.height;
         _videoWidth = info.media.video.width;
-        _videoFormat = FRAME_FORMAT_I420;  // just support YUV420
+
+        if (!strcmp(info.media.video.pix_fmt, "bgra")) {
+            _videoFormat = FRAME_FORMAT_BGRA;  // support bgra32
+        } else {
+            _videoFormat = FRAME_FORMAT_I420;  // support YUV420
+        }
+
         _videoFramerate = info.media.video.framerate;
         _videoStreamIndex = 0;
     } else if (info.type == "audio") {
@@ -62,7 +69,12 @@ void RawFileIn::readFileLoop()
     std::chrono::microseconds interval;
 
     if (_videoStreamIndex != -1) {
-        frameSize = (_videoWidth * _videoHeight * 3 / 2);  // for YUV420
+        if (_videoFormat == FRAME_FORMAT_BGRA) {
+            frameSize = _videoWidth * _videoHeight * 4;  // for BGRA32
+        } else {
+            frameSize = _videoWidth * _videoHeight * 3 / 2;  // for YUV420
+        }
+
         interval = std::chrono::microseconds((long)(1000000 / _videoFramerate));
     } else if (_audioStreamIndex != -1) {
         interval = std::chrono::microseconds(1024 * 1000000 / _audioSampleRate);  // 1024 nb_samples
@@ -85,7 +97,10 @@ void RawFileIn::readFileLoop()
 
     size_t bytes;
     while (_runing && _file) {
+        logger("---- read");
         bytes = fread(_buff.get(), 1, frameSize, _file);
+        logger("read %d bytes", bytes);
+
         if (bytes != frameSize) {
             if (bytes != 0) {
                 logger("fread error:%s", strerror(errno));
@@ -116,7 +131,7 @@ void RawFileIn::deliverVideoFrame()
     frame.format = _videoFormat;
     frame.payload = _buff.get();
     frame.length = _buffLength;
-    frame.timeStamp = std::chrono::system_clock::now().time_since_epoch().count() / 1000000;
+    frame.timeStamp = currentTime() - startTime();
     frame.additionalInfo.video.width = _videoWidth;
     frame.additionalInfo.video.height = _videoHeight;
     frame.additionalInfo.video.isKeyFrame = true;
@@ -131,8 +146,7 @@ void RawFileIn::deliverAudioFrame()
     frame.format = _audioFormat;
     frame.payload = _buff.get();
     frame.length = _buffLength;
-    frame.timeStamp =
-        AudioTime::currentTime(); /*std::chrono::system_clock::now().time_since_epoch().count() / 1000000;*/
+    frame.timeStamp = currentTime() - startTime();
     frame.additionalInfo.audio.isRtpPacket = 0;
     frame.additionalInfo.audio.sampleRate = _audioSampleRate;
     frame.additionalInfo.audio.channels = _audioChannels;

@@ -14,14 +14,14 @@ extern "C" {
 }
 
 struct VideoInfo {
-    AVPixelFormat pix_fmt;  // support AV_PIX_FMT_YUV420P | AV_PIX_FMT_BGRA
+    char *pix_fmt;  // support yuv420 AV_PIX_FMT_YUV420P | bgra AV_PIX_FMT_BGRA
     int width;
     int height;
     int framerate;
 };
 
 struct AudioInfo {
-    AVSampleFormat sample_fmt;  // PCM s16le: AV_SAMPLE_FMT_S16, f32le: AV_SAMPLE_FMT_FLT
+    char *sample_fmt;  // PCM s16le: AV_SAMPLE_FMT_S16, f32le: AV_SAMPLE_FMT_FLT
     int channel;
     int sample_rate;
 };
