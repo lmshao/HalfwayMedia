@@ -69,9 +69,9 @@ int main(int argc, char **argv)
     }
 
     //    audio_encoding_pcm_s16le_to_aac();
-    //    video_encoding_yuv420_to_h264();
-    //    video_encoding_bgra32_to_h264();
-    video_converison_bgra32_to_yuv420();
+    //        video_encoding_yuv420_to_h264();
+    video_encoding_bgra32_to_h264();
+    //    video_converison_bgra32_to_yuv420();
     printf("\n============== main exit! ==============\n");
     return 0;
 }

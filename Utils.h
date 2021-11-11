@@ -30,4 +30,16 @@ int64_t startTime();  // ms
 
 int64_t currentTime();  // ms
 
+struct DataBuffer {
+    uint8_t *data;
+    int length;
+
+    explicit DataBuffer(int length) : length(length) {
+        data = new uint8_t[length];
+    }
+    ~DataBuffer() {
+        delete[] data;
+    }
+};
+
 #endif  // HALFWAYLIVE_UTILS_H

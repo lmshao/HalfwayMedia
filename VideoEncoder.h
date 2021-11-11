@@ -10,7 +10,11 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
 }
+
+#include "ImageConversion.h"
+#include "Utils.h"
 
 class VideoEncoder : public FrameSource, public FrameDestination {
   public:
@@ -38,6 +42,8 @@ class VideoEncoder : public FrameSource, public FrameDestination {
     AVFrame *_videoFrame;
     AVPacket *_videoPkt;
     std::shared_mutex _mutex;
+    ImageConversion *_ic;
+    std::shared_ptr<DataBuffer> _icData;
 };
 
 #endif  // HALFWAYLIVE_VIDEOENCODER_H

@@ -18,7 +18,8 @@ VideoEncoder::VideoEncoder(FrameFormat format)
       _format(format),
       _videoEnc(nullptr),
       _videoFrame(nullptr),
-      _videoPkt(nullptr)
+      _videoPkt(nullptr),
+      _ic(nullptr)
 {
 }
 
@@ -41,6 +42,8 @@ VideoEncoder::~VideoEncoder()
         avcodec_free_context(&_videoEnc);
     }
 
+    delete _ic;
+
     _format = FRAME_FORMAT_UNKNOWN;
 }
 
@@ -48,7 +51,7 @@ void VideoEncoder::onFrame(const Frame &frame)
 {
     std::shared_lock<std::shared_mutex> sharedLock(_mutex);
 
-    if (frame.format != FRAME_FORMAT_I420) {
+    if (frame.format != FRAME_FORMAT_I420 && frame.format != FRAME_FORMAT_BGRA) {
         logger("Unsupported format %s", getFormatStr(frame.format));
         return;
     }
@@ -76,16 +79,22 @@ void VideoEncoder::onFrame(const Frame &frame)
         return;
     }
 
-    if (av_frame_make_writable(_videoFrame)) {
-        return;
+    if (frame.format == FRAME_FORMAT_I420) {
+        av_image_fill_arrays(_videoFrame->data, _videoFrame->linesize, frame.payload, AV_PIX_FMT_YUV420P, _width,
+                             _height, 1);
+    } else if (frame.format == FRAME_FORMAT_BGRA) {
+        if (!_ic) {
+            _ic = new ImageConversion;
+            _icData.reset(new DataBuffer(_width * _height * 3 / 2));
+        }
+
+        _ic->BGRA32ToYUV420(frame.payload, _icData->data, frame.additionalInfo.video.width,
+                            frame.additionalInfo.video.height);
+
+        av_image_fill_arrays(_videoFrame->data, _videoFrame->linesize, _icData->data, AV_PIX_FMT_YUV420P, _width,
+                             _height, 1);
     }
 
-    int ySize = _width * _height;
-    int uSize = ((_width + 1) / 2) * ((_height + 1) / 2);
-    assert(frame.length == ySize + uSize * 2);
-    memcpy(_videoFrame->data[0], frame.payload, ySize);
-    memcpy(_videoFrame->data[1], frame.payload + ySize, uSize);
-    memcpy(_videoFrame->data[2], frame.payload + ySize + uSize, uSize);
     _videoFrame->pts = frame.timeStamp;
 
     avcodec_send_frame(_videoEnc, _videoFrame);
@@ -158,7 +167,7 @@ bool VideoEncoder::initEncoder(FrameFormat format)
     _videoEnc->time_base = {1, 24};
     _videoEnc->framerate = {24, 1};
     _videoEnc->max_b_frames = 0;
-    _videoEnc->pix_fmt = AV_PIX_FMT_YUV420P;  // AV_PIX_FMT_BGRA
+    _videoEnc->pix_fmt = AV_PIX_FMT_YUV420P;
 
     if (codec->id == AV_CODEC_ID_H264) {
         av_opt_set(_videoEnc->priv_data, "tune", "zerolatency", 0);  // no delay
@@ -175,6 +184,7 @@ bool VideoEncoder::initEncoder(FrameFormat format)
         av_frame_free(&_videoFrame);
     }
 
+    // TODO: remove av_frame_alloc() if use av_image_fill_arrays()
     _videoFrame = av_frame_alloc();
     if (!_videoFrame) {
         logger("Cannot allocate audio frame");
