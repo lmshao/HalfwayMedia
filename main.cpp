@@ -54,7 +54,7 @@ int main(int argc, char **argv)
                 out = optarg;
                 break;
             case 'd':
-                //                decodeFlag = true;
+//                decodeFlag = true;
                 break;
             case 'h':
                 printf("Show Usage: %s -i media_in -o media_out\n", argv[0]);
@@ -69,9 +69,11 @@ int main(int argc, char **argv)
     }
 
     //    audio_encoding_pcm_s16le_to_aac();
-    //        video_encoding_yuv420_to_h264();
-    video_encoding_bgra32_to_h264();
+    //    video_encoding_yuv420_to_h264();
+    //    video_encoding_bgra32_to_h264();
     //    video_converison_bgra32_to_yuv420();
+    audio_conversion_f32le_to_s16le();
+
     printf("\n============== main exit! ==============\n");
     return 0;
 }

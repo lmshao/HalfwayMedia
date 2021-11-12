@@ -6,6 +6,8 @@
 #define HALFWAYLIVE_UTILS_H
 
 #include <stdint.h>
+#include <string.h>
+
 #define logger(fmt, args...) print(__FILE__, __LINE__, __PRETTY_FUNCTION__, fmt, ##args)
 
 // #define logger(fmt, args...)
@@ -22,9 +24,7 @@ char *ff_err2str(int errRet);
 
 // #define DUMP_HEX(x, y)
 
-char *dumpHex(const uint8_t *ptr, int lenght);
-
-void setTimestampOffset(uint32_t offset);
+char *dumpHex(const uint8_t *ptr, int length);
 
 int64_t startTime();  // ms
 
@@ -34,11 +34,21 @@ struct DataBuffer {
     uint8_t *data;
     int length;
 
-    explicit DataBuffer(int length) : length(length) {
+    explicit DataBuffer(int length) : length(length) { data = new uint8_t[length]; }
+
+    ~DataBuffer() { delete[] data; }
+
+    void reset(int size)
+    {
+        delete[] data;
+        length = size;
         data = new uint8_t[length];
     }
-    ~DataBuffer() {
-        delete[] data;
+
+    void clear()
+    {
+        if (data)
+            memset(data, 0, length);
     }
 };
 

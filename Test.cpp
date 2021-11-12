@@ -11,6 +11,7 @@
 #include "MediaOut.h"
 #include "RawFileIn.h"
 #include "RawFileOut.h"
+#include "Resampling.h"
 #include "VideoEncoder.h"
 
 std::string ts = std::to_string(time(nullptr));
@@ -162,5 +163,36 @@ int video_converison_bgra32_to_yuv420()
 
     sleep(10);
 
+    return 0;
+}
+int audio_conversion_f32le_to_s16le()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<MediaOut> mediaOut;
+    std::shared_ptr<AudioEncoder> audioEncoder;
+    std::shared_ptr<RawFileOut> rawFileOut;
+    std::shared_ptr<Resampling> resampler;
+
+    RawFileInfo info;
+    info.type = "audio";
+    info.media.audio.sample_fmt = "f32le";
+    info.media.audio.channel = 2;
+    info.media.audio.sample_rate = 48000;
+    mediaIn.reset(new RawFileIn("../Sample/sample-audio-48k-ac2-f32le.pcm", info));
+    if (!mediaIn->open())
+        return false;
+
+    resampler.reset(new Resampling());
+
+    rawFileOut.reset(new RawFileOut(ts + ".pcm"));
+    resampler->addAudioDestination(rawFileOut.get());
+
+    mediaIn->addAudioDestination(resampler.get());
+    mediaIn->start();
+
+    if (mediaIn != nullptr)
+        mediaIn->waitThread();
+
+    sleep(1);
     return 0;
 }

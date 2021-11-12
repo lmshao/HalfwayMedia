@@ -10,7 +10,7 @@
 #include "AudioTime.h"
 
 RawFileIn::RawFileIn(const std::string &filename, const RawFileInfo &info, bool liveMode)
-    : MediaIn(filename), _file(nullptr), _buffLength(0), isLiveMode(liveMode)
+    : MediaIn(filename), _file(nullptr), _buff(nullptr), isLiveMode(liveMode)
 {
     if (info.type == "video") {
         _videoHeight = info.media.video.height;
@@ -27,6 +27,11 @@ RawFileIn::RawFileIn(const std::string &filename, const RawFileInfo &info, bool 
     } else if (info.type == "audio") {
         _audioChannels = info.media.audio.channel;
         _audioFormat = FRAME_FORMAT_PCM_48000_2;
+        if (!strcmp(info.media.audio.sample_fmt, "f32le")) {
+            _audioFormat = FRAME_FORMAT_PCM_48000_2_FLT;  // support f32le
+        } else {
+            _audioFormat = FRAME_FORMAT_PCM_48000_2_S16;  // default s16le
+        }
         _audioSampleRate = info.media.audio.sample_rate;
         _audioStreamIndex = 0;
     }
@@ -38,6 +43,10 @@ RawFileIn::~RawFileIn()
 {
     if (_file) {
         fclose(_file);
+    }
+
+    if (_buff) {
+        delete _buff;
     }
 }
 
@@ -79,7 +88,11 @@ void RawFileIn::readFileLoop()
     } else if (_audioStreamIndex != -1) {
         interval = std::chrono::microseconds(1024 * 1000000 / _audioSampleRate);  // 1024 nb_samples
         // 2byte/16bit sampling depth for s16le, 4byte for f32le
-        frameSize = 1024 * 2 * 2;  // 1024 * 2ch * 2byte Depth
+        if (_audioFormat == FRAME_FORMAT_PCM_48000_2_FLT) {
+            frameSize = 1024 * 2 * 4;  // 1024 * 2ch * 4byte depth
+        } else {
+            frameSize = 1024 * 2 * 2;  // 1024 * 2ch * 2byte depth
+        }
     } else {
         return;
     }
@@ -87,8 +100,7 @@ void RawFileIn::readFileLoop()
     logger("frame size = %d, interval = %d ms\n", frameSize, interval.count() / 1000);
 
     if (_buff == nullptr) {
-        _buff.reset(new uint8_t[frameSize]);
-        _buffLength = (int)frameSize;
+        _buff = new DataBuffer(frameSize);
     }
 
     long n = 0;
@@ -97,13 +109,10 @@ void RawFileIn::readFileLoop()
 
     size_t bytes;
     while (_runing && _file) {
-        logger("---- read");
-        bytes = fread(_buff.get(), 1, frameSize, _file);
-        logger("read %d bytes", bytes);
-
+        bytes = fread(_buff->data, 1, frameSize, _file);
         if (bytes != frameSize) {
             if (bytes != 0) {
-                logger("fread error:%s", strerror(errno));
+                logger("read frame error [incomplete file] | %s", strerror(errno));
             } else {
                 logger("End of File");
             }
@@ -129,8 +138,8 @@ void RawFileIn::deliverVideoFrame()
     Frame frame;
     memset(&frame, 0, sizeof(frame));
     frame.format = _videoFormat;
-    frame.payload = _buff.get();
-    frame.length = _buffLength;
+    frame.payload = _buff->data;
+    frame.length = _buff->length;
     frame.timeStamp = currentTime() - startTime();
     frame.additionalInfo.video.width = _videoWidth;
     frame.additionalInfo.video.height = _videoHeight;
@@ -144,14 +153,19 @@ void RawFileIn::deliverAudioFrame()
     Frame frame;
     memset(&frame, 0, sizeof(frame));
     frame.format = _audioFormat;
-    frame.payload = _buff.get();
-    frame.length = _buffLength;
+    frame.payload = _buff->data;
+    frame.length = _buff->length;
     frame.timeStamp = currentTime() - startTime();
     frame.additionalInfo.audio.isRtpPacket = 0;
     frame.additionalInfo.audio.sampleRate = _audioSampleRate;
     frame.additionalInfo.audio.channels = _audioChannels;
-    frame.additionalInfo.audio.nbSamples = frame.length / frame.additionalInfo.audio.channels / 2;
-    deliverFrame(frame);
+    if (_audioFormat == FRAME_FORMAT_PCM_48000_2_FLT) {
+        // 4 bytes per sample
+        frame.additionalInfo.audio.nbSamples = frame.length / frame.additionalInfo.audio.channels / 4;
+    } else {
+        frame.additionalInfo.audio.nbSamples = frame.length / frame.additionalInfo.audio.channels / 2;
+    }
 
+    deliverFrame(frame);
     logger("deliver audio frame, timestamp %ld(%ld), size %4d", frame.timeStamp, frame.timeStamp, frame.length);
 }

@@ -172,7 +172,8 @@ inline bool isAudioFrame(const Frame &frame)
            frame.format == FRAME_FORMAT_ILBC || frame.format == FRAME_FORMAT_G722_16000_1 ||
            frame.format == FRAME_FORMAT_G722_16000_2 || frame.format == FRAME_FORMAT_AAC ||
            frame.format == FRAME_FORMAT_AAC_48000_2 || frame.format == FRAME_FORMAT_AC3 ||
-           frame.format == FRAME_FORMAT_NELLYMOSER || frame.format == FRAME_FORMAT_MP3;
+           frame.format == FRAME_FORMAT_NELLYMOSER || frame.format == FRAME_FORMAT_MP3 ||
+           frame.format == FRAME_FORMAT_PCM_48000_2_FLT || frame.format == FRAME_FORMAT_PCM_48000_2_S16;
 }
 
 inline bool isVideoFrame(const Frame &frame)

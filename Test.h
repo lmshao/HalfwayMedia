@@ -13,4 +13,6 @@ int video_encoding_bgra32_to_h264();
 
 int video_converison_bgra32_to_yuv420();
 
+int audio_conversion_f32le_to_s16le();
+
 #endif  // HALFWAYMEDIA_TEST_H

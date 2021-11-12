@@ -54,8 +54,9 @@ class RawFileIn : public MediaIn {
 
     FILE *_file;
     int _videoFramerate;
-    std::shared_ptr<uint8_t[]> _buff;
-    int _buffLength;
+    //    std::shared_ptr<uint8_t[]> _buff;
+    //    int _buffLength;
+    DataBuffer *_buff;
     bool isLiveMode;
 };
 
