@@ -56,7 +56,8 @@ bool Resampling::F32ToS16(AVFrame *frame, uint8_t **pOutData, int *pOutNbSamples
     logger("get sample buffer size = %d", bufSize);
 
     *pOutData = _dstData[0];
-    *pOutNbSamples = ret;
+    if (pOutNbSamples)
+        *pOutNbSamples = ret;
     return true;
 }
 

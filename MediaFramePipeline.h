@@ -133,6 +133,10 @@ inline const char *getFormatStr(const FrameFormat &format)
             return "H265";
         case FRAME_FORMAT_PCM_48000_2:
             return "PCM_48000_2";
+        case FRAME_FORMAT_PCM_48000_2_FLT:
+            return "PCM_48000_2_FLT";
+        case FRAME_FORMAT_PCM_48000_2_S16:
+            return "PCM_48000_2_S16";
         case FRAME_FORMAT_PCMU:
             return "PCMU";
         case FRAME_FORMAT_PCMA:

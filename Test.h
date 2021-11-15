@@ -15,4 +15,6 @@ int video_converison_bgra32_to_yuv420();
 
 int audio_conversion_f32le_to_s16le();
 
+int audio_encoding_pcm_f32le_to_aac();
+
 #endif  // HALFWAYMEDIA_TEST_H

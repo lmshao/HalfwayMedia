@@ -6,6 +6,7 @@
 #define HALFWAYLIVE_AUDIOENCODER_H
 
 #include "MediaFramePipeline.h"
+#include "Resampling.h"
 #include "Utils.h"
 
 extern "C" {
@@ -20,7 +21,6 @@ class AudioEncoder : public FrameSource, public FrameDestination {
     void onFrame(const Frame &frame) override;
 
     bool init();
-    bool addAudioFrame(const Frame &audioFrame);
     void flush();
 
   protected:
@@ -30,6 +30,8 @@ class AudioEncoder : public FrameSource, public FrameDestination {
     void sendOut(AVPacket &pkt);
 
   private:
+    bool resampling(const Frame &frame);
+
     FrameFormat _format;
     uint32_t _timestampOffset;
     bool _valid;
@@ -41,6 +43,7 @@ class AudioEncoder : public FrameSource, public FrameDestination {
     AVAudioFifo *_audioFifo;
     AVFrame *_audioFrame;
     AVPacket *_audioPkt;
+    Resampling *_resampler;
 };
 
 #endif  // HALFWAYLIVE_AUDIOENCODER_H

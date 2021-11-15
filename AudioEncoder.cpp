@@ -30,13 +30,15 @@ AudioEncoder::AudioEncoder(FrameFormat format)
       _audioEnc(nullptr),
       _audioFifo(nullptr),
       _audioFrame(nullptr),
-      _audioPkt(nullptr)
+      _audioPkt(nullptr),
+      _resampler(nullptr)
 {
 }
 
 AudioEncoder::~AudioEncoder()
 {
-    if (!_valid) return;
+    if (!_valid)
+        return;
 
     if (_audioFrame) {
         av_frame_free(&_audioFrame);
@@ -62,7 +64,44 @@ AudioEncoder::~AudioEncoder()
 
 void AudioEncoder::onFrame(const Frame &frame)
 {
-    addAudioFrame(frame);
+    if (!_valid)
+        return;
+
+    if (frame.format != FRAME_FORMAT_PCM_48000_2_FLT && frame.format != FRAME_FORMAT_PCM_48000_2_S16) {
+        logger("Unsupported format %s", getFormatStr(frame.format));
+        return;
+    }
+
+    if (frame.format == FRAME_FORMAT_PCM_48000_2_FLT) {
+        // Resampling
+        if (!_resampler) {
+            _resampler = new Resampling();
+        }
+
+        AVFrame inFrame;
+        inFrame.sample_rate = frame.additionalInfo.audio.sampleRate;
+        inFrame.channels = frame.additionalInfo.audio.channels;
+        inFrame.nb_samples = frame.additionalInfo.audio.nbSamples;
+        inFrame.data[0] = frame.payload;
+        inFrame.format = (frame.format == FRAME_FORMAT_PCM_48000_2_FLT) ? AV_SAMPLE_FMT_FLT : AV_SAMPLE_FMT_S16;
+
+        Frame frame1 = frame;
+        frame1.format = FRAME_FORMAT_PCM_48000_2_S16;
+
+        int nbSample = 0;
+        if (!_resampler->F32ToS16(&inFrame, &frame1.payload, &nbSample))
+            return;
+
+        frame1.length = av_samples_get_buffer_size(nullptr, inFrame.channels, nbSample, AV_SAMPLE_FMT_S16, 1);
+
+        if (!addToFifo(frame1))
+            return;
+    } else {
+        if (!addToFifo(frame))
+            return;
+    }
+
+    encode();
 }
 
 bool AudioEncoder::init()
@@ -72,16 +111,6 @@ bool AudioEncoder::init()
     }
 
     _valid = true;
-    return true;
-}
-
-bool AudioEncoder::addAudioFrame(const Frame &audioFrame)
-{
-    if (!_valid) return false;
-
-    if (!addToFifo(audioFrame)) return false;
-
-    encode();
     return true;
 }
 
@@ -204,7 +233,6 @@ bool AudioEncoder::initEncoder(const FrameFormat format)
     logger("Audio encoder frame_size %d, sample_rate %d, channels %d", _audioEnc->frame_size, _audioEnc->sample_rate,
            _audioEnc->channels);
 
-    AudioTime::setTimestampOffset(AudioTime::currentTime());
     return true;
 
 fail:
@@ -310,4 +338,9 @@ void AudioEncoder::sendOut(AVPacket &pkt)
            frame.additionalInfo.audio.isRtpPacket ? "RtpPacket" : "NonRtpPacket");
 
     deliverFrame(frame);
+}
+
+bool AudioEncoder::resampling(const Frame &frame)
+{
+    return false;
 }

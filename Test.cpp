@@ -165,6 +165,7 @@ int video_converison_bgra32_to_yuv420()
 
     return 0;
 }
+
 int audio_conversion_f32le_to_s16le()
 {
     std::shared_ptr<MediaIn> mediaIn;
@@ -193,6 +194,40 @@ int audio_conversion_f32le_to_s16le()
     if (mediaIn != nullptr)
         mediaIn->waitThread();
 
+    sleep(1);
+    return 0;
+}
+
+int audio_encoding_pcm_f32le_to_aac()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<MediaOut> mediaOut;
+    std::shared_ptr<AudioEncoder> audioEncoder;
+    std::shared_ptr<RawFileOut> rawFileOut;
+
+    RawFileInfo info;
+    info.type = "audio";
+    info.media.audio.sample_fmt = "f32le";
+    info.media.audio.channel = 2;
+    info.media.audio.sample_rate = 48000;
+    mediaIn.reset(new RawFileIn("../Sample/sample-audio-48k-ac2-f32le.pcm", info));
+
+    if (!mediaIn->open())
+        return false;
+
+    audioEncoder.reset(new AudioEncoder(FRAME_FORMAT_AAC_48000_2));
+    mediaIn->addAudioDestination(audioEncoder.get());
+
+    rawFileOut.reset(new RawFileOut(ts + ".aac"));
+    audioEncoder->addAudioDestination(rawFileOut.get());
+    audioEncoder->init();
+
+    mediaIn->start();
+
+    if (mediaIn != nullptr)
+        mediaIn->waitThread();
+
+    audioEncoder->flush();
     sleep(1);
     return 0;
 }
