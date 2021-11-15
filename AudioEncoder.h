@@ -30,8 +30,6 @@ class AudioEncoder : public FrameSource, public FrameDestination {
     void sendOut(AVPacket &pkt);
 
   private:
-    bool resampling(const Frame &frame);
-
     FrameFormat _format;
     uint32_t _timestampOffset;
     bool _valid;

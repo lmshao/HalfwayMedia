@@ -7,8 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "AudioTime.h"
-
 RawFileIn::RawFileIn(const std::string &filename, const RawFileInfo &info, bool liveMode)
     : MediaIn(filename), _file(nullptr), _buff(nullptr), isLiveMode(liveMode)
 {

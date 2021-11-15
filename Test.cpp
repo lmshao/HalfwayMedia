@@ -8,6 +8,7 @@
 
 #include "AudioEncoder.h"
 #include "ImageConversion.h"
+#include "MediaFileOut.h"
 #include "MediaOut.h"
 #include "RawFileIn.h"
 #include "RawFileOut.h"
@@ -132,6 +133,46 @@ int video_encoding_bgra32_to_h264()
     return 0;
 }
 
+int video_encoding_bgra32_to_mp4()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<MediaOut> mediaOut;
+    std::shared_ptr<VideoEncoder> videoEncoder;
+    std::shared_ptr<RawFileOut> rawFileOut;
+
+    RawFileInfo info;
+    info.type = "video";
+    info.media.video.pix_fmt = "bgra";
+    info.media.video.height = 1080;
+    info.media.video.width = 1920;
+    info.media.video.framerate = 24;
+    mediaIn.reset(new RawFileIn("../Sample/sample-1080p-bgra.rgb", info, true));
+
+    if (!mediaIn->open())
+        return -1;
+
+    //    rawFileOut.reset(new RawFileOut(ts + ".h264"));
+    mediaOut.reset(new MediaFileOut(ts + ".mp4", false, true));
+
+    videoEncoder.reset(new VideoEncoder(FRAME_FORMAT_H264));
+    //    videoEncoder->addVideoDestination(rawFileOut.get());
+    videoEncoder->addVideoDestination(mediaOut.get());
+
+    mediaIn->addVideoDestination(videoEncoder.get());
+
+    mediaIn->start();
+
+    if (mediaIn != nullptr) {
+        mediaIn->waitThread();
+    }
+
+    sleep(1);
+    if (mediaOut != nullptr) {
+        mediaOut->waitThread();
+    }
+    return 0;
+}
+
 int video_converison_bgra32_to_yuv420()
 {
     std::shared_ptr<MediaIn> mediaIn;
@@ -229,5 +270,47 @@ int audio_encoding_pcm_f32le_to_aac()
 
     audioEncoder->flush();
     sleep(1);
+    return 0;
+}
+
+int audio_encoding_pcm_f32le_to_mp4()
+{
+    std::shared_ptr<MediaIn> mediaIn;
+    std::shared_ptr<MediaOut> mediaOut;
+    std::shared_ptr<AudioEncoder> audioEncoder;
+    std::shared_ptr<RawFileOut> rawFileOut;
+
+    RawFileInfo info;
+    info.type = "audio";
+    info.media.audio.sample_fmt = "f32le";
+    info.media.audio.channel = 2;
+    info.media.audio.sample_rate = 48000;
+    mediaIn.reset(new RawFileIn("../Sample/sample-audio-48k-ac2-f32le.pcm", info, true));
+
+    if (!mediaIn->open())
+        return false;
+
+    audioEncoder.reset(new AudioEncoder(FRAME_FORMAT_AAC_48000_2));
+    mediaIn->addAudioDestination(audioEncoder.get());
+
+    rawFileOut.reset(new RawFileOut(ts + ".aac"));
+    audioEncoder->addAudioDestination(rawFileOut.get());
+
+    mediaOut.reset(new MediaFileOut(ts + ".mp4", true, false));
+    audioEncoder->addAudioDestination(mediaOut.get());
+
+    audioEncoder->init();
+
+    mediaIn->start();
+
+    if (mediaIn != nullptr)
+        mediaIn->waitThread();
+
+    audioEncoder->flush();
+
+    sleep(1);
+
+    if (mediaOut != nullptr)
+        mediaOut->waitThread();
     return 0;
 }

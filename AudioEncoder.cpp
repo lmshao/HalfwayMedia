@@ -6,21 +6,6 @@
 
 #include <sys/time.h>
 
-#include "AudioTime.h"
-
-static enum AVSampleFormat getCodecPreferedSampleFmt(AVCodec *codec, enum AVSampleFormat PreferedSampleFmt)
-{
-    const enum AVSampleFormat *p = codec->sample_fmts;
-
-    while (*p != AV_SAMPLE_FMT_NONE) {
-        if (*p == PreferedSampleFmt) {
-            return PreferedSampleFmt;
-        }
-        p++;
-    }
-    return codec->sample_fmts[0];
-}
-
 AudioEncoder::AudioEncoder(FrameFormat format)
     : _format(format),
       _timestampOffset(0),
@@ -60,6 +45,8 @@ AudioEncoder::~AudioEncoder()
 
     _valid = false;
     _format = FRAME_FORMAT_UNKNOWN;
+
+    delete _resampler;
 }
 
 void AudioEncoder::onFrame(const Frame &frame)
@@ -177,7 +164,7 @@ bool AudioEncoder::initEncoder(const FrameFormat format)
     _audioEnc->channel_layout = av_get_default_channel_layout(_audioEnc->channels);
     _audioEnc->sample_rate = _sampleRate;
     // AV_SAMPLE_FMT_S16 | AV_SAMPLE_FMT_FLT
-    _audioEnc->sample_fmt = AV_SAMPLE_FMT_S16;  // getCodecPreferedSampleFmt(codec, AV_SAMPLE_FMT_FLTP);
+    _audioEnc->sample_fmt = AV_SAMPLE_FMT_S16;
     _audioEnc->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     ret = avcodec_open2(_audioEnc, codec, nullptr);
@@ -270,7 +257,6 @@ bool AudioEncoder::addToFifo(const Frame &audioFrame)
 
     DUMP_HEX(audioFrame.payload, 10);
     logger("%d", av_audio_fifo_space(_audioFifo));
-    //    void *data = (void*)audioFrame.payload;
     void *data = cache.get();
 
     uint32_t n =
@@ -321,7 +307,6 @@ void AudioEncoder::encode()
 
 void AudioEncoder::sendOut(AVPacket &pkt)
 {
-    logger("");
     Frame frame;
     memset(&frame, 0, sizeof(frame));
     frame.format = _format;
@@ -330,7 +315,7 @@ void AudioEncoder::sendOut(AVPacket &pkt)
     frame.additionalInfo.audio.nbSamples = _audioEnc->frame_size;
     frame.additionalInfo.audio.sampleRate = _audioEnc->sample_rate;
     frame.additionalInfo.audio.channels = _audioEnc->channels;
-    frame.timeStamp = AudioTime::currentTime(); /* frame.additionalInfo.audio.sampleRate / 1000;*/
+    frame.timeStamp = currentTime();
 
     logger("deliverFrame(%s), sampleRate(%d), channels(%d), timeStamp(%d), length(%d), %s", getFormatStr(frame.format),
            frame.additionalInfo.audio.sampleRate, frame.additionalInfo.audio.channels,
@@ -338,9 +323,4 @@ void AudioEncoder::sendOut(AVPacket &pkt)
            frame.additionalInfo.audio.isRtpPacket ? "RtpPacket" : "NonRtpPacket");
 
     deliverFrame(frame);
-}
-
-bool AudioEncoder::resampling(const Frame &frame)
-{
-    return false;
 }

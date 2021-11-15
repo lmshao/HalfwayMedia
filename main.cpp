@@ -70,10 +70,12 @@ int main(int argc, char **argv)
 
     //    video_encoding_yuv420_to_h264();
     //    video_encoding_bgra32_to_h264();
+        video_encoding_bgra32_to_mp4();
     //    video_converison_bgra32_to_yuv420();
     //    audio_encoding_pcm_s16le_to_aac();
     //    audio_conversion_f32le_to_s16le();
-    audio_encoding_pcm_f32le_to_aac();
+    //    audio_encoding_pcm_f32le_to_aac();
+    //    audio_encoding_pcm_f32le_to_mp4();
 
     printf("\n============== main exit! ==============\n");
     return 0;

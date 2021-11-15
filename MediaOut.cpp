@@ -56,7 +56,8 @@ MediaFrameQueue::MediaFrameQueue() : _valid(true), _startTimeOffset(currentTimeM
 void MediaFrameQueue::pushFrame(const Frame &frame)
 {
     std::unique_lock<std::mutex> lock(_mutex);
-    if (!_valid) return;
+    if (!_valid)
+        return;
 
     // Cache the last frame
     std::shared_ptr<MediaFrame> lastFrame;
@@ -271,7 +272,7 @@ void MediaOut::onFrame(const Frame &frame)
 
 void MediaOut::close()
 {
-    //    printf("Close %s", _url.c_str());
+    logger("Close %s", _url.c_str());
     _status = Context_CLOSED;
     _frameQueue.cancel();
     _thread.join();
