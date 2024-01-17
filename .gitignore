@@ -2,6 +2,7 @@
 cmake-build-debug/
 cmake-build-debug-remote-host/
 .vscode/
+.cache/
 *.o
 build/
-Sample/
+bak/
