@@ -5,7 +5,6 @@
 #include "tcp_server.h"
 #include "../common/thread_pool.h"
 #include "../common/utils.h"
-#include "../network/network_common.h"
 #include "event_processor.h"
 #include <arpa/inet.h>
 #include <cerrno>
@@ -13,9 +12,18 @@
 #include <cstring>
 #include <memory>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#define RECV_BUFFER_MAX_SIZE 4096
+const int RECV_BUFFER_MAX_SIZE = 4096;
+const int TCP_BACKLOG = 10;
+
+TcpServer::~TcpServer()
+{
+    if (callbackThreads_) {
+        callbackThreads_.reset();
+    }
+}
 
 bool TcpServer::Init()
 {
@@ -61,7 +69,7 @@ bool TcpServer::Start()
         callbackThreads_ = std::make_unique<ThreadPool>(1, 4, "TcpServer-cb");
     }
 
-    EventProcessor::GetInstance()->AddListeningFd(socket_, shared_from_this());
+    EventProcessor::GetInstance()->AddServiceFd(socket_, [&](int fd) { this->HandleAccept(fd); });
 
     return true;
 }
@@ -71,22 +79,58 @@ bool TcpServer::Stop()
     LOGD("enter");
     if (socket_ != INVALID_SOCKET) {
         callbackThreads_.reset();
-        EventProcessor::GetInstance()->RemoveListeningFd(socket_);
+        EventProcessor::GetInstance()->RemoveServiceFd(socket_);
         socket_ = INVALID_SOCKET;
     }
     LOGD("leave");
     return true;
 }
 
-void TcpServer::OnAccept(const ClientInfo &client)
+bool TcpServer::Send(int fd, std::shared_ptr<DataBuffer> buffer)
 {
-    LOGD("onAccept");
+    if (sessions_.find(fd) == sessions_.end()) {
+        LOGE("invalid session fd");
+        return false;
+    }
+
+    ssize_t bytes = send(fd, buffer->Data(), buffer->Size(), 0);
+    if (bytes != buffer->Size()) {
+        printf("Send scuccess, length:%zd\n\n", bytes);
+        LOGE("send failed with error: %s, %zd/%zu", strerror(errno), bytes, buffer->Size());
+        return false;
+    }
+
+    return true;
+}
+
+void TcpServer::HandleAccept(int fd)
+{
+    LOGD("enter");
+    struct sockaddr_in clientAddr = {};
+    socklen_t addrLen = sizeof(struct sockaddr_in);
+    int clientSocket = accept(fd, (struct sockaddr *)&clientAddr, &addrLen);
+    if (clientSocket < 0) {
+        LOGE("accept error: %s", strerror(errno));
+        return;
+    }
+
+    EventProcessor::GetInstance()->AddConnectionFd(clientSocket, [&](int fd) { this->HandleReceive(fd); });
+
+    std::string host = inet_ntoa(clientAddr.sin_addr);
+    uint16_t port = ntohs(clientAddr.sin_port);
+
+    LOGD("New client connections client[%d] %s:%d\n", clientSocket, inet_ntoa(clientAddr.sin_addr),
+         ntohs(clientAddr.sin_port));
+
+    auto session = std::make_shared<SessionImpl>(clientSocket, host, port, shared_from_this());
+    sessions_.emplace(clientSocket, session);
+
     if (!listener_.expired()) {
         callbackThreads_->AddTask([=](void *) {
             LOGD("invoke OnAccept callback");
             auto listener = listener_.lock();
             if (listener) {
-                listener->OnAccept(client);
+                listener->OnAccept(sessions_[clientSocket]);
             } else {
                 LOGE("not found listener!");
             }
@@ -96,43 +140,58 @@ void TcpServer::OnAccept(const ClientInfo &client)
     }
 }
 
-void TcpServer::OnReceive(const ClientInfo &client)
+void TcpServer::HandleReceive(int fd)
 {
-    LOGD("OnReceive from %s:%d", client.host.c_str(), client.port);
+    LOGD("fd: %d", fd);
     static char buffer[RECV_BUFFER_MAX_SIZE] = {};
     memset(buffer, 0, RECV_BUFFER_MAX_SIZE);
 
-    ssize_t nbytes = recv(client.fd, buffer, sizeof(buffer), 0);
+    ssize_t nbytes = recv(fd, buffer, sizeof(buffer), 0);
     if (nbytes < 0) {
-        LOGE("recv error: %s", strerror(errno));
-    } else if (nbytes == 0) {
-        LOGW("Disconnect fd[%d]", client.fd);
-        close(client.fd);
-
-        EventProcessor::GetInstance()->RemoveConnectionFd(client.fd);
+        std::string info = strerror(errno);
+        LOGE("recv error: %s", info.c_str());
+        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+        close(fd);
 
         if (!listener_.expired()) {
             callbackThreads_->AddTask([=](void *) {
                 auto listener = listener_.lock();
                 if (listener) {
-                    listener->OnClose(client);
+                    listener->OnError(sessions_[fd], info);
+                    sessions_.erase(fd);
                 } else {
                     LOGE("not found listener!");
                 }
             });
         }
+
+    } else if (nbytes == 0) {
+        LOGW("Disconnect fd[%d]", fd);
+        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+        close(fd);
+
+        if (!listener_.expired()) {
+            callbackThreads_->AddTask([=](void *) {
+                auto listener = listener_.lock();
+                if (listener) {
+                    listener->OnClose(sessions_[fd]);
+                    sessions_.erase(fd);
+                } else {
+                    LOGE("not found listener!");
+                }
+            });
+        }
+
     } else {
-        LOGD("...");
         if (!listener_.expired()) {
             auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
             dataBuffer->Assign(buffer, nbytes);
             callbackThreads_->AddTask([=](void *) {
                 auto listener = listener_.lock();
                 if (listener) {
-                    listener->OnReceive(client, dataBuffer);
+                    listener->OnReceive(sessions_[fd], dataBuffer);
                 }
             });
         }
     }
-    LOGD("...");
 }

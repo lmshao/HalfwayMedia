@@ -14,8 +14,9 @@ constexpr int EPOLL_WAIT_EVENT_NUMS_MAX = 1024;
 
 EventReactor::EventReactor()
 {
-    LOGD("Constructing EventReactor");
     epollThread_ = std::make_unique<std::thread>([&]() { this->Run(); });
+    std::unique_lock<std::mutex> taskLock(signalMutex_);
+    runningSignal_.wait_for(taskLock, std::chrono::milliseconds(5), [this] { return this->running_ == true; });
 }
 
 EventReactor::~EventReactor()
@@ -33,9 +34,9 @@ void EventReactor::AddListeningFd(int fd, std::function<void(int)> callback)
     fds_.emplace(fd, callback);
     lock.unlock();
 
-    if (running_ == false) {
-        std::unique_lock<std::mutex> taskLock(signalMutex_);
-        runningSignal_.wait_for(taskLock, std::chrono::milliseconds(5), [this] { return this->running_ == true; });
+    if (!running_) {
+        LOGE("Reactor has exited");
+        return;
     }
 
     struct epoll_event ev;
@@ -48,6 +49,29 @@ void EventReactor::AddListeningFd(int fd, std::function<void(int)> callback)
     LOGD("epoll_ctl ok");
 }
 
+void EventReactor::RemoveListeningFd(int fd)
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (fds_.find(fd) == fds_.end()) {
+        return;
+    }
+    fds_.erase(fd);
+    lock.unlock();
+
+    if (running_ == false) {
+        LOGE("Reactor has exited");
+        return;
+    }
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.fd = fd;
+    if (epoll_ctl(epollFd_, EPOLL_CTL_DEL, fd, &ev) == -1) {
+        LOGE("epoll_ctl error: %s", strerror(errno));
+        return;
+    }
+}
+
 void EventReactor::Run()
 {
     LOGD("enter");
@@ -57,14 +81,11 @@ void EventReactor::Run()
         LOGE("epoll_create %s", strerror(errno));
         return;
     }
-    LOGD("epollFd: %d", epollFd_);
 
     int nfds = 0;
     running_ = true;
     runningSignal_.notify_all();
     struct epoll_event readyEvents[EPOLL_WAIT_EVENT_NUMS_MAX] = {};
-
-    // prctl(PR_SET_NAME, "EventReactor");
 
     while (running_) {
         nfds = epoll_wait(epollFd_, readyEvents, EPOLL_WAIT_EVENT_NUMS_MAX, 100);
@@ -75,7 +96,6 @@ void EventReactor::Run()
             continue;
         }
 
-        LOGD("[%p] ...", this);
         for (int i = 0; i < nfds; i++) {
             int readyFd = readyEvents[i].data.fd;
             std::unique_lock<std::mutex> lock(mutex_);

@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 
 class EventProcessor : public Singleton<EventProcessor> {
@@ -18,30 +19,24 @@ class EventProcessor : public Singleton<EventProcessor> {
 
 public:
     ~EventProcessor() override;
-    void AddListeningFd(int fd, std::shared_ptr<InternalFdListener> listener);
-    void RemoveListeningFd(int fd);
+    // for tcp server
+    void AddServiceFd(int fd, std::function<void(int)> callback);
+    void RemoveServiceFd(int fd);
+
+    void AddConnectionFd(int fd, std::function<void(int)> callback);
     void RemoveConnectionFd(int fd);
 
 protected:
     EventProcessor();
 
 private:
-    void Start();
-    void HandleAccept(int fd);
+    std::mutex callbackMutex_;
+    std::mutex subReactorsMutex_;
 
-    std::shared_ptr<InternalFdListener> GetListener(int fd);
-
-private:
-    std::once_flag initFlag_;
-    bool running_ = true;
-
-    std::mutex mutex_;
     // for TCP server socket acceptor
-    std::unique_ptr<EventReactor> mainReactor_; // for accept
-
-    std::unordered_map<std::shared_ptr<EventReactor>, std::unordered_set<int>> reactorFdsMap_;
-    std::unordered_map<int, std::unordered_set<int>> fds_;                 // server socket fd - clients's socket fd
-    std::unordered_map<int, std::weak_ptr<InternalFdListener>> listeners_; // server socket fd - listener
+    std::unique_ptr<EventReactor> mainReactor_;
+    std::map<std::shared_ptr<EventReactor>, std::unordered_set<int>> subReactorsMap_;
+    std::unordered_map<int, std::function<void(int)>> fdCallbacks_;
 };
 
 #endif // HALFWAY_MEDIA_NETWORK_EVENT_PROCESSOR_H

@@ -6,16 +6,16 @@
 #define HALFWAY_MEDIA_NETWORK_ISERVER_LISTENER_H
 
 #include "../common/data_buffer.h"
-#include "network_common.h"
+#include "session.h"
 #include <memory>
 
 class IServerListener {
 public:
     virtual ~IServerListener() = default;
-    virtual void OnError(const ClientInfo &client) = 0;
-    virtual void OnClose(const ClientInfo &client) = 0;
-    virtual void OnAccept(const ClientInfo &client) = 0;
-    virtual void OnReceive(const ClientInfo &client, std::shared_ptr<DataBuffer> buffer) = 0;
+    virtual void OnError(std::shared_ptr<Session> session, const std::string &errorInfo) = 0;
+    virtual void OnClose(std::shared_ptr<Session> session) = 0;
+    virtual void OnAccept(std::shared_ptr<Session> session) = 0;
+    virtual void OnReceive(std::shared_ptr<Session> session, std::shared_ptr<DataBuffer> buffer) = 0;
 };
 
 #endif // HALFWAY_MEDIA_NETWORK_ISERVER_LISTENER_H

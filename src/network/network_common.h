@@ -15,24 +15,4 @@ const std::string LOCAL_HOST = "0.0.0.0";
 
 const int TCP_BACKLOG = 10;
 
-struct ClientInfo {
-    int fd;
-    std::string host;
-    uint16_t port;
-
-    std::string ToString() const
-    {
-        std::stringstream ss;
-        ss << host << ":" << port << " (" << fd << ")";
-        return ss.str();
-    }
-};
-
-class InternalFdListener {
-public:
-    virtual ~InternalFdListener() = default;
-    virtual void OnAccept(const ClientInfo &client) = 0;
-    virtual void OnReceive(const ClientInfo &client) = 0;
-};
-
 #endif // HALFWAY_MEDIA_NETWORK_NETWORK_COMMON_H

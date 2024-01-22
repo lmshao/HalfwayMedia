@@ -6,14 +6,16 @@
 #define HALFWAY_MEDIA_NETWORK_TCP_SERVER_H
 
 #include "../common/thread_pool.h"
+#include "base_server.h"
 #include "iserver_listener.h"
 #include "network_common.h"
+#include "session_impl.h"
 #include <cstdint>
 #include <memory>
 #include <netinet/in.h>
 #include <string>
 
-class TcpServer final : public InternalFdListener, public std::enable_shared_from_this<TcpServer> {
+class TcpServer final : public BaseServer, public std::enable_shared_from_this<TcpServer> {
     friend class EventProcessor;
 
 public:
@@ -23,19 +25,20 @@ public:
         return std::shared_ptr<TcpServer>(new TcpServer(args...));
     }
 
-    ~TcpServer() override{  }
+    ~TcpServer();
 
-    bool Init();
-    void SetListener(std::shared_ptr<IServerListener> listener) { listener_ = listener; }
-    bool Start();
-    bool Stop();
+    bool Init() override;
+    void SetListener(std::shared_ptr<IServerListener> listener) override { listener_ = listener; }
+    bool Start() override;
+    bool Stop() override;
+    bool Send(int fd, std::shared_ptr<DataBuffer> buffer) override;
 
 protected:
     TcpServer(std::string listenIp, uint16_t listenPort) : localIp_(listenIp), localPort_(listenPort) {}
     explicit TcpServer(uint16_t listenPort) : localPort_(listenPort) {}
 
-    void OnAccept(const ClientInfo &client) override;
-    void OnReceive(const ClientInfo &client) override;
+    void HandleAccept(int fd);
+    void HandleReceive(int fd);
 
 private:
     uint16_t localPort_;
@@ -44,6 +47,7 @@ private:
     struct sockaddr_in serverAddr_;
 
     std::weak_ptr<IServerListener> listener_;
+    std::unordered_map<int, std::shared_ptr<SessionImpl>> sessions_;
     std::unique_ptr<ThreadPool> callbackThreads_;
 };
 

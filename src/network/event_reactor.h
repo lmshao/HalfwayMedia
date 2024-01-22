@@ -18,6 +18,8 @@ public:
     ~EventReactor();
 
     void AddListeningFd(int fd, std::function<void(int)> callback);
+    void RemoveListeningFd(int fd);
+
     void SetThreadName(std::string name);
 
 private:
@@ -25,13 +27,11 @@ private:
 
 private:
     int epollFd_ = -1;
+    bool running_ = false;
+
     std::mutex mutex_;
-
-    bool running_ = true;
-
     std::mutex signalMutex_;
     std::condition_variable runningSignal_;
-
     std::unordered_map<int, std::function<void(int)>> fds_;
     std::unique_ptr<std::thread> epollThread_;
 };

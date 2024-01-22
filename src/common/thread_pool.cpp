@@ -43,7 +43,6 @@ void ThreadPool::Worker()
 {
     while (running_) {
         if (tasks_.empty()) {
-            LOGD("worker thread waiting for new tasks");
             std::unique_lock<std::mutex> taskLock(signalMutex_);
             idle_++;
             signal_.wait(taskLock);
