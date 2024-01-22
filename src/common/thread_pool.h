@@ -20,11 +20,11 @@ class ThreadPool {
 public:
     using Task = std::function<void(void *)>;
 
-    explicit ThreadPool(int preAlloc = THREAD_NUM_PRE_ALLOC, int threadsMax = THREAD_NUM_MAX);
+    explicit ThreadPool(int preAlloc = THREAD_NUM_PRE_ALLOC, int threadsMax = THREAD_NUM_MAX, std::string name = "");
     ~ThreadPool();
 
     void Worker();
-    void AddTask(const Task &task, void *userData, size_t dataSize = 0);
+    void AddTask(const Task &task, void *userData = nullptr, size_t dataSize = 0);
 
 private:
     struct TaskItem {
@@ -39,8 +39,8 @@ private:
 private:
     bool running_ = true;
     int threadsMax_;
-    std::atomic<int> idle_;
-
+    std::atomic<int> idle_ = 0;
+    std::string threadName_ = "threadpool";
     std::mutex signalMutex_;
     std::condition_variable signal_;
 

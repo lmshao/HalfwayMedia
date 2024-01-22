@@ -1,5 +1,5 @@
 //
-// Copyright 2020-2024 SHAO Liming <lmshao@163.com>. All rights reserved.
+// Copyright © 2020-2024 SHAO Liming <lmshao@163.com>. All rights reserved.
 //
 
 #ifndef HALFWAY_MEDIA_UTILS_H
@@ -17,10 +17,14 @@ char *ff_err2str(int errRet);
 
 #define FILENAME_ (__builtin_strrchr(__FILE__, '/') ? __builtin_strrchr(__FILE__, '/') + 1 : __FILE__)
 
+#ifdef RELEASE
+#define LOGD(fmt, ...)
+#else
 #define LOGD(fmt, ...)                                                                                                 \
     do {                                                                                                               \
         printf("%s - %s:%d - %s: " fmt "\n", Time().c_str(), FILENAME_, __LINE__, __PRETTY_FUNCTION__, ##__VA_ARGS__); \
     } while (0);
+#endif // RELEASE
 
 #define LOGE(fmt, ...)                                                                                                 \
     do {                                                                                                               \

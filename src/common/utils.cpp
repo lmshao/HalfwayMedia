@@ -1,5 +1,5 @@
 //
-// Copyright 2020 Liming SHAO <lmshao@163.com>. All rights reserved.
+// Copyright © 2020-2024 SHAO Liming <lmshao@163.com>. All rights reserved.
 //
 
 #include "utils.h"

@@ -3,15 +3,27 @@
 //
 
 #include "thread_pool.h"
+#include "utils.h"
 #include <cstring>
+#include <string>
 
-ThreadPool::ThreadPool(int preAlloc, int threadsMax) : threadsMax_(threadsMax)
+ThreadPool::ThreadPool(int preAlloc, int threadsMax, std::string name) : threadsMax_(threadsMax)
 {
     if (preAlloc > threadsMax) {
         preAlloc = threadsMax;
     }
+
+    if (!name.empty()) {
+        if (name.size() > 12) {
+            name = name.substr(0, 12);
+        }
+        threadName_ = name;
+    }
+
     for (int i = 0; i < preAlloc; ++i) {
         auto p = std::make_unique<std::thread>(&ThreadPool::Worker, this);
+        std::string threadName = threadName_ + "-" + std::to_string(i);
+        pthread_setname_np(p->native_handle(), threadName.c_str());
         threads_.emplace(std::move(p));
     }
 }
@@ -31,6 +43,7 @@ void ThreadPool::Worker()
 {
     while (running_) {
         if (tasks_.empty()) {
+            LOGD("worker thread waiting for new tasks");
             std::unique_lock<std::mutex> taskLock(signalMutex_);
             idle_++;
             signal_.wait(taskLock);
@@ -58,6 +71,7 @@ void ThreadPool::Worker()
 void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
 {
     if (task == nullptr) {
+        LOGE("task is nullptr");
         return;
     }
 
@@ -68,9 +82,11 @@ void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
         signal_.notify_one();
         return;
     }
-
+    LOGD("idle:%d, thread num: %zu/%d", idle_.load(), threads_.size(), threadsMax_);
     if (threads_.size() < threadsMax_) {
         auto p = std::make_unique<std::thread>(&ThreadPool::Worker, this);
+        std::string threadName = threadName_ + "-" + std::to_string(threads_.size());
+        pthread_setname_np(p->native_handle(), threadName_.c_str());
         threads_.emplace(std::move(p));
     }
 }

@@ -11,4 +11,13 @@ file(GLOB_RECURSE SRCS "src/*.cpp")
 message(STATUS "${SRCS}")
 add_executable(${PROJECT_NAME} ${SRCS})
 
-target_link_libraries(${PROJECT_NAME} avcodec avdevice avfilter avutil avformat  swscale swresample pthread)
+target_link_libraries(
+  ${PROJECT_NAME}
+  avcodec
+  avdevice
+  avfilter
+  avutil
+  avformat
+  swscale
+  swresample
+  pthread)
