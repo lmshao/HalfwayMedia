@@ -1,5 +1,5 @@
 #include "raw_file_sink.h"
-#include "../../common/utils.h"
+#include "../../common/log.h"
 
 RawFileSink::~RawFileSink()
 {

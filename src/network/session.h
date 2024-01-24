@@ -6,7 +6,7 @@
 #define HALFWAY_MEDIA_NETWORK_SESSION_H
 
 #include "../common/data_buffer.h"
-#include "../common/utils.h"
+#include "../common/log.h"
 #include "base_server.h"
 #include <cstdint>
 #include <memory>

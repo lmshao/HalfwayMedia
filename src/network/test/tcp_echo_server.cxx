@@ -63,9 +63,11 @@ int main(int argc, char **argv)
     tcp_server->SetListener(listener);
     tcp_server->Init();
     tcp_server->Start();
+    printf("Listen on port 0.0.0.0:%d\n", port);
 
-    printf("Waiting...\n");
-    sleep(200);
+    while (true) {
+        sleep(100);
+    }
     printf("Exit...\n");
     return 0;
 }

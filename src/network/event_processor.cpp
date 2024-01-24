@@ -3,7 +3,7 @@
 //
 
 #include "event_processor.h"
-#include "../common/utils.h"
+#include "../common/log.h"
 #include "event_reactor.h"
 #include <algorithm>
 #include <arpa/inet.h>

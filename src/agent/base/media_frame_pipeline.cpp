@@ -3,7 +3,7 @@
 //
 
 #include "media_frame_pipeline.h"
-#include "../../common/utils.h"
+#include "../../common/log.h"
 #include <algorithm>
 #include <mutex>
 

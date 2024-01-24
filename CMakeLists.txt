@@ -7,6 +7,8 @@ link_directories("/usr/local/lib/")
 
 set(CMAKE_CXX_FLAGS "-Wno-error")
 
+file(REMOVE_RECURSE src/network/test/build)
+
 file(GLOB_RECURSE SRCS "src/*.cpp")
 message(STATUS "${SRCS}")
 add_executable(${PROJECT_NAME} ${SRCS})

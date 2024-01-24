@@ -3,7 +3,7 @@
 //
 
 #include "tcp_client.h"
-#include "../common/utils.h"
+#include "../common/log.h"
 #include "event_processor.h"
 #include "network_common.h"
 #include <arpa/inet.h>

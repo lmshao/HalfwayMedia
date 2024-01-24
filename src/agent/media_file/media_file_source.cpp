@@ -4,11 +4,13 @@
 
 #include "media_file_source.h"
 #include "../../common/data_buffer.h"
+#include "../../common/log.h"
 #include "../../common/utils.h"
 #include "common/frame.h"
 #include <memory>
 
 extern "C" {
+#include <libavutil/error.h>
 #include <libavutil/time.h>
 }
 
@@ -25,7 +27,7 @@ bool MediaFileSource::Init()
     AVDictionary *options = nullptr;
     int ret = avformat_open_input(&avFmtCtx_, fileName_.c_str(), nullptr, &options);
     if (ret != 0) {
-        LOGE("Failed to open input file '%s': %s", fileName_.c_str(), ff_err2str(ret));
+        LOGE("Failed to open input file '%s': %s", fileName_.c_str(), ff_strerror(ret));
         return false;
     }
 
@@ -35,7 +37,7 @@ bool MediaFileSource::Init()
     avFmtCtx_->max_ts_probe = 0;
     ret = avformat_find_stream_info(avFmtCtx_, nullptr);
     if (ret != 0) {
-        LOGE("Failed to retrieve input stream information: %s", ff_err2str(ret));
+        LOGE("Failed to retrieve input stream information: %s", ff_strerror(ret));
         return false;
     }
 

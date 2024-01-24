@@ -10,10 +10,10 @@ set(NETWORK_SRCS
     ../event_processor.cpp
     ../event_reactor.cpp
     ../../common/thread_pool.cpp
-    ../../common/data_buffer.cpp
-    ../../common/utils.cpp)
+    ../../common/log.cpp
+    ../../common/data_buffer.cpp)
 
-# set(CMAKE_CXX_FLAGS "-DRELEASE")
+set(CMAKE_CXX_FLAGS "-DRELEASE")
 add_library(network ${NETWORK_SRCS})
 
 add_executable(tcp_client tcp_client.cxx)

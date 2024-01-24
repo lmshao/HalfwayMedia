@@ -3,8 +3,8 @@
 //
 
 #include "tcp_server.h"
+#include "../common/log.h"
 #include "../common/thread_pool.h"
-#include "../common/utils.h"
 #include "event_processor.h"
 #include <arpa/inet.h>
 #include <cerrno>
