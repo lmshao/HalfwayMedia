@@ -5,7 +5,7 @@
 #include "../tcp_client.h"
 
 #include <assert.h>
-#include <stdio.h>
+#include <iostream>
 #include <thread>
 
 bool gExit = false;

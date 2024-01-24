@@ -5,7 +5,6 @@
 #include "tcp_client.h"
 #include "../common/log.h"
 #include "event_processor.h"
-#include "network_common.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -20,15 +19,10 @@ TcpClient::TcpClient(std::string remoteIp, uint16_t remotePort, std::string loca
 
 TcpClient::~TcpClient()
 {
-    if (socket_ != INVALID_SOCKET) {
-        EventProcessor::GetInstance()->RemoveConnectionFd(socket_);
-        close(socket_);
-        socket_ = INVALID_SOCKET;
-    }
-
     if (callbackThreads_) {
         callbackThreads_.reset();
     }
+    Close();
 }
 
 bool TcpClient::Init()
@@ -85,7 +79,7 @@ bool TcpClient::Connect()
     }
 
     if (!listener_.expired()) {
-        callbackThreads_ = std::make_unique<ThreadPool>(1, 1, "UdpClient-cb");
+        callbackThreads_ = std::make_unique<ThreadPool>(1, 1, "TcpClient-cb");
         EventProcessor::GetInstance()->AddConnectionFd(socket_, [&](int fd) { this->HandleReceive(fd); });
     }
 
@@ -118,13 +112,13 @@ bool TcpClient::Send(std::shared_ptr<DataBuffer> data)
     return TcpClient::Send((char *)data->Data(), data->Size());
 }
 
-bool TcpClient::Close()
+void TcpClient::Close()
 {
     if (socket_ != INVALID_SOCKET) {
+        EventProcessor::GetInstance()->RemoveConnectionFd(socket_);
         close(socket_);
         socket_ = INVALID_SOCKET;
     }
-    return true;
 }
 
 void TcpClient::HandleReceive(int fd)

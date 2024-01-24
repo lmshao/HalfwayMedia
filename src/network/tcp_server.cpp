@@ -20,9 +20,7 @@ const int TCP_BACKLOG = 10;
 
 TcpServer::~TcpServer()
 {
-    if (callbackThreads_) {
-        callbackThreads_.reset();
-    }
+    Stop();
 }
 
 bool TcpServer::Init()
@@ -76,17 +74,17 @@ bool TcpServer::Start()
 
 bool TcpServer::Stop()
 {
-    LOGD("enter");
     if (socket_ != INVALID_SOCKET) {
         callbackThreads_.reset();
         EventProcessor::GetInstance()->RemoveServiceFd(socket_);
+        close(socket_);
         socket_ = INVALID_SOCKET;
     }
-    LOGD("leave");
+
     return true;
 }
 
-bool TcpServer::Send(int fd, std::shared_ptr<DataBuffer> buffer)
+bool TcpServer::Send(int fd, std::string host, uint16_t port, std::shared_ptr<DataBuffer> buffer)
 {
     if (sessions_.find(fd) == sessions_.end()) {
         LOGE("invalid session fd");

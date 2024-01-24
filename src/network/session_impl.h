@@ -21,7 +21,7 @@ public:
     {
         auto server = server_.lock();
         if (server) {
-            return server->Send(fd_, buffer);
+            return server->Send(fd_, host, port, buffer);
         }
         LOGE("server is invalid");
         return false;

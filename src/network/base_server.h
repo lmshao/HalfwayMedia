@@ -16,7 +16,7 @@ public:
     virtual void SetListener(std::shared_ptr<IServerListener> listener) = 0;
     virtual bool Start() = 0;
     virtual bool Stop() = 0;
-    virtual bool Send(int fd, std::shared_ptr<DataBuffer> buffer) = 0;
+    virtual bool Send(int fd, std::string host, uint16_t port, std::shared_ptr<DataBuffer> buffer) = 0;
 };
 
 #endif // HALFWAY_MEDIA_NETWORK_BASE_SERVER_H

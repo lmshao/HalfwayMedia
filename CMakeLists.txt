@@ -5,13 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 include_directories("/usr/local/include/" src)
 link_directories("/usr/local/lib/")
 
+file(GLOB_RECURSE SOURCES "src/*.cpp")
+file(GLOB_RECURSE EXCLUDE_FILES "CMakeCXXCompilerId.cpp")
+list(REMOVE_ITEM SOURCES ${EXCLUDE_FILES})
+message(STATUS ${SOURCES})
+
 set(CMAKE_CXX_FLAGS "-Wno-error")
-
-file(REMOVE_RECURSE src/network/test/build)
-
-file(GLOB_RECURSE SRCS "src/*.cpp")
-message(STATUS "${SRCS}")
-add_executable(${PROJECT_NAME} ${SRCS})
+add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_link_libraries(
   ${PROJECT_NAME}

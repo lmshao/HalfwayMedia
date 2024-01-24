@@ -6,29 +6,40 @@
 #define HALFWAY_MEDIA_NETWORK_UDP_CLIENT_H
 
 #include "../common/data_buffer.h"
+#include "../common/thread_pool.h"
 #include "iclient_listener.h"
-#include "network_common.h"
 #include <cstdint>
 #include <memory>
 #include <netinet/in.h>
 #include <string>
 #include <thread>
 
-class UdpClient {
+const int INVALID_SOCKET = -1;
+
+class UdpClient final {
+    friend class EventProcessor;
+
 public:
+    template <typename... Args>
+    static std::shared_ptr<UdpClient> Create(Args... args)
+    {
+        return std::shared_ptr<UdpClient>(new UdpClient(args...));
+    }
+
     UdpClient(std::string remoteIp, uint16_t remotePort, std::string localIp = "", uint16_t localPort = 0);
     ~UdpClient();
 
     bool Init();
-    void Close();
-    void SetClientListener(std::shared_ptr<IClientListener> listener) { clientListener_ = listener; }
+    void SetListener(std::shared_ptr<IClientListener> listener) { listener_ = listener; }
 
     bool Send(const std::string &str);
     bool Send(const void *data, size_t len);
     bool Send(std::shared_ptr<DataBuffer> data);
 
-private:
-    void ReceiveThread();
+    void Close();
+
+protected:
+    void HandleReceive(int fd);
 
 private:
     std::string remoteIp_;
@@ -40,7 +51,7 @@ private:
     int socket_ = INVALID_SOCKET;
     struct sockaddr_in serverAddr_ {};
 
-    std::weak_ptr<IClientListener> clientListener_;
-    std::unique_ptr<std::thread> clientRecvThread_;
+    std::weak_ptr<IClientListener> listener_;
+    std::unique_ptr<ThreadPool> callbackThreads_;
 };
 #endif // HALFWAY_MEDIA_NETWORK_UDP_CLIENT_H

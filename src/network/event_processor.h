@@ -6,12 +6,11 @@
 #define HALFWAY_MEDIA_NETWORK_EVENT_PROCESSOR_H
 
 #include "../common/singleton.h"
-#include "../network/network_common.h"
 #include "event_reactor.h"
+#include <map>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-#include <map>
 #include <unordered_set>
 
 class EventProcessor : public Singleton<EventProcessor> {

@@ -4,8 +4,10 @@
 
 #include "udp_client.h"
 #include "../common/log.h"
-#include "network_common.h"
+#include "event_processor.h"
 #include <arpa/inet.h>
+#include <assert.h>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <sys/socket.h>
@@ -21,6 +23,9 @@ UdpClient::UdpClient(std::string remoteIp, uint16_t remotePort, std::string loca
 
 UdpClient::~UdpClient()
 {
+    if (callbackThreads_) {
+        callbackThreads_.reset();
+    }
     Close();
 }
 
@@ -43,7 +48,7 @@ bool UdpClient::Init()
         localAddr.sin_family = AF_INET;
         localAddr.sin_port = htons(localPort_);
         if (localIp_.empty()) {
-            localIp_ = LOCAL_HOST;
+            localIp_ = "0.0.0.0";
         }
         inet_aton(localIp_.c_str(), &localAddr.sin_addr);
 
@@ -59,14 +64,11 @@ bool UdpClient::Init()
 
 void UdpClient::Close()
 {
+
     if (socket_ != INVALID_SOCKET) {
+        EventProcessor::GetInstance()->RemoveConnectionFd(socket_);
         close(socket_);
         socket_ = INVALID_SOCKET;
-    }
-
-    if (clientRecvThread_ && clientRecvThread_->joinable()) {
-        clientRecvThread_->join();
-        clientRecvThread_.reset();
     }
 }
 
@@ -77,12 +79,13 @@ bool UdpClient::Send(const void *data, size_t len)
         return false;
     }
 
-    if (!clientListener_.expired() && clientRecvThread_ == nullptr) {
-        clientRecvThread_ = std::make_unique<std::thread>(&UdpClient::ReceiveThread, this);
+    if (!listener_.expired() && callbackThreads_ == nullptr) {
+        callbackThreads_ = std::make_unique<ThreadPool>(1, 1, "UdpClient-cb");
+        EventProcessor::GetInstance()->AddConnectionFd(socket_, [&](int fd) { this->HandleReceive(fd); });
     }
 
-    size_t bytes = sendto(socket_, data, len, 0, (struct sockaddr *)&serverAddr_, (socklen_t)(sizeof(serverAddr_)));
-    if (bytes == -1) {
+    size_t nbytes = sendto(socket_, data, len, 0, (struct sockaddr *)&serverAddr_, (socklen_t)(sizeof(serverAddr_)));
+    if (nbytes == -1) {
         LOGE("sendto error: %s", strerror(errno));
         return false;
     }
@@ -100,23 +103,58 @@ bool UdpClient::Send(std::shared_ptr<DataBuffer> data)
     return UdpClient::Send((char *)data->Data(), data->Size());
 }
 
-void UdpClient::ReceiveThread()
+void UdpClient::HandleReceive(int fd)
 {
-    auto dataBuffer = std::make_shared<DataBuffer>(RECV_BUFFER_MAX_SIZE);
-    while (socket_ != INVALID_SOCKET) {
-        ssize_t bytes = recv(socket_, dataBuffer->Data(), RECV_BUFFER_MAX_SIZE, 0);
-        if (bytes > 0) {
-            dataBuffer->SetSize(bytes);
-            auto listener = clientListener_.lock();
-            if (listener) {
-                listener->OnReceive(dataBuffer);
-            }
-        } else if (bytes < 0) {
-            LOGE("recv error: %s", strerror(errno));
-            continue;
-        } else {
-            LOGW("disconnected: %s", strerror(errno));
-            break;
+    LOGD("fd: %d", fd);
+    static char buffer[RECV_BUFFER_MAX_SIZE] = {};
+    memset(buffer, 0, RECV_BUFFER_MAX_SIZE);
+
+    assert(socket_ == fd);
+    ssize_t nbytes = recv(fd, buffer, sizeof(buffer), 0);
+    if (nbytes > 0) {
+        if (!listener_.expired()) {
+            auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
+            dataBuffer->Assign(buffer, nbytes);
+            callbackThreads_->AddTask([=](void *) {
+                auto listener = listener_.lock();
+                if (listener) {
+                    listener->OnReceive(dataBuffer);
+                }
+            });
+        }
+    } else if (nbytes < 0) {
+        std::string info = strerror(errno);
+        LOGE("recv error: %s", info.c_str());
+        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+        close(fd);
+
+        if (!listener_.expired()) {
+            callbackThreads_->AddTask([=](void *) {
+                auto listener = listener_.lock();
+                if (listener) {
+                    listener->OnError(info);
+                    Close();
+                } else {
+                    LOGE("not found listener!");
+                }
+            });
+        }
+
+    } else if (nbytes == 0) {
+        LOGW("Disconnect fd[%d]", fd);
+        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+        close(fd);
+
+        if (!listener_.expired()) {
+            callbackThreads_->AddTask([=](void *) {
+                auto listener = listener_.lock();
+                if (listener) {
+                    listener->OnClose();
+                    Close();
+                } else {
+                    LOGE("not found listener!");
+                }
+            });
         }
     }
 }
