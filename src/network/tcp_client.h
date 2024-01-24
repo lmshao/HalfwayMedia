@@ -6,15 +6,28 @@
 #define HALFWAY_MEDIA_NETWORK_TCP_CLIENT_H
 
 #include "../common/data_buffer.h"
+#include "../common/thread_pool.h"
+#include "iclient_listener.h"
 #include "network_common.h"
 #include <cstdint>
+#include <netinet/in.h>
 #include <string>
 
-class TcpClient {
-public:
-    TcpClient(std::string remoteIp, uint16_t remotePort, std::string localIp = "", uint16_t localPort = 0) {}
+class TcpClient final {
+    friend class EventProcessor;
 
-    bool Init() { return true; }
+public:
+    template <typename... Args>
+    static std::shared_ptr<TcpClient> Create(Args... args)
+    {
+        return std::shared_ptr<TcpClient>(new TcpClient(args...));
+    }
+
+    ~TcpClient();
+
+    bool Init();
+    void SetListener(std::shared_ptr<IClientListener> listener) { listener_ = listener; }
+    bool Connect();
 
     bool Send(const std::string &str);
     bool Send(const char *data, size_t len);
@@ -22,9 +35,23 @@ public:
 
     bool Close();
 
+protected:
+    TcpClient(std::string remoteIp, uint16_t remotePort, std::string localIp = "", uint16_t localPort = 0);
+
+    void HandleReceive(int fd);
 
 private:
-    
+    std::string remoteIp_;
+    uint16_t remotePort_;
+
+    std::string localIp_;
+    uint16_t localPort_;
+
+    int socket_ = INVALID_SOCKET;
+    struct sockaddr_in serverAddr_;
+
+    std::weak_ptr<IClientListener> listener_;
+    std::unique_ptr<ThreadPool> callbackThreads_;
 };
 
 #endif // HALFWAY_MEDIA_NETWORK_TCP_CLIENT_H

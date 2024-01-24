@@ -16,11 +16,11 @@ set(NETWORK_SRCS
 # set(CMAKE_CXX_FLAGS "-DRELEASE")
 add_library(network ${NETWORK_SRCS})
 
-add_executable(tcp_client udp_client.cxx)
-target_link_libraries(tcp_client avutil pthread network)
+add_executable(tcp_client tcp_client.cxx)
+target_link_libraries(tcp_client pthread network avutil)
 
 add_executable(udp_client udp_client.cxx)
-target_link_libraries(udp_client avutil pthread network)
+target_link_libraries(udp_client pthread network avutil)
 
 add_executable(tcp_echo_server tcp_echo_server.cxx)
 target_link_libraries(tcp_echo_server pthread network avutil)

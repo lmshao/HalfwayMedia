@@ -10,8 +10,10 @@
 
 class IClientListener {
 public:
-    IClientListener();
+    virtual ~IClientListener() = default;
     virtual void OnReceive(std::shared_ptr<DataBuffer> buffer) = 0;
+    virtual void OnClose() = 0;
+    virtual void OnError(const std::string &errorInfo) = 0;
 };
 
 #endif // HALFWAY_MEDIA_NETWORK_ICLIENT_LISTENER_H

@@ -13,6 +13,4 @@
 const int INVALID_SOCKET = -1;
 const std::string LOCAL_HOST = "0.0.0.0";
 
-const int TCP_BACKLOG = 10;
-
 #endif // HALFWAY_MEDIA_NETWORK_NETWORK_COMMON_H
