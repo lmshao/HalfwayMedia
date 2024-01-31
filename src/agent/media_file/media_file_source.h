@@ -20,9 +20,9 @@ public:
     ~MediaFileSource() override;
 
     template <typename... Args>
-    static std::shared_ptr<MediaFileSource> Create(Args... args)
+    static std::shared_ptr<MediaFileSource> Create(std::string fileName)
     {
-        return std::shared_ptr<MediaFileSource>(new MediaFileSource(args...));
+        return std::shared_ptr<MediaFileSource>(new MediaFileSource(std::move(fileName)));
     }
 
     // impl MediaSource

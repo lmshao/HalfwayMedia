@@ -3,6 +3,7 @@
 //
 
 #include "utils.h"
+#include "log.h"
 #include <chrono>
 #include <stdio.h>
 #include <string.h>
@@ -21,4 +22,19 @@ char *ff_strerror(int errRet)
 {
     static char errBuff[64];
     return av_make_error_string(errBuff, 64, errRet);
+}
+
+UrlType DetectUrlType(const std::string &url)
+{
+    if (url.empty()) {
+        return TYPE_UNKNOWN;
+    }
+
+    if (url.compare(0, 7, "file://") == 0 || url.compare(0, 1, "/") == 0 || url.compare(0, 1, ".") == 0) {
+        return TYPE_FILE;
+    } else if (url.compare(0, 7, "rtsp://") == 0) {
+        return TYPE_RTSP;
+    }
+
+    return TYPE_UNKNOWN;
 }

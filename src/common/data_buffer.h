@@ -40,6 +40,7 @@ public:
     size_t Capacity() const { return capacity_; }
     void SetCapacity(size_t len);
 
+    bool Empty() const { return size_ == 0; }
     void Clear();
     void HexDump(size_t len = 0);
 

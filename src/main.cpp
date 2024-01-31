@@ -1,28 +1,33 @@
-#include "agent/base/media_frame_pipeline.h"
-#include "agent/base/media_source.h"
-#include "agent/fake_data/fake_data_source.h"
-#include "agent/media_file/media_file_source.h"
-#include "agent/media_file/raw_file_sink.h"
+#include "common/log.h"
+#include "session/rtp_pusher_session.h"
 #include <iostream>
-#include <string>
-
+#include <memory>
 #include <unistd.h>
 
 int main(int argc, char **argv)
 {
     printf("Hello Halfway, Built at %s on %s.\n", __TIME__, __DATE__);
 
-    auto raw_file_sink = RawFileSink::Create("outFile.h264");
-    std::cout << raw_file_sink.get() << std::endl;
-    raw_file_sink->Init();
+    auto rtpPusherSession = std::make_unique<RtpPusherSession>();
 
-    auto fakeSrc = MediaFileSource::Create("../assets/Sample.mp4");
-    fakeSrc->AddVideoSink(raw_file_sink);
-    fakeSrc->Init();
-    fakeSrc->Start();
+    rtpPusherSession->SetSourceUrl("../assets/Luca.mkv");
+    rtpPusherSession->SetRtpAddress("192.168.1.100", 1234, 1235);
 
-    sleep(20);
-    fakeSrc->Stop();
-    printf("end.\n");
+    if (!rtpPusherSession->Init()) {
+        LOGE("RTP session init failed");
+        return 1;
+    }
+
+    if (!rtpPusherSession->Start()) {
+        LOGE("RTP session start failed");
+        return 1;
+    }
+
+    LOGD("RTP session start ok");
+
+    while (true) {
+        sleep(10);
+    }
+
     return 0;
 }
