@@ -9,12 +9,12 @@
 
 class RtpPacketizerAAC : public RtpPacketizer {
 public:
-    void Packetize(const std::shared_ptr<Frame> &frame) override {}
+    void Packetize(const std::shared_ptr<Frame> &frame) override;
 };
 
 class RtpDepacketizerAAC : public RtpDepacketizer {
 public:
-    void Depacketize() override {}
+    void Depacketize() override;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_AAC_H

@@ -68,7 +68,6 @@ void RtpPacketizerH264::Packetize(const std::shared_ptr<Frame> &frame)
 
     auto frames = SplitH264Frame(frame->Data(), frame->Size());
 
-    LOGW("...");
     for (auto &f : frames) {
         const uint8_t *nalu = std::get<0>(f);
         size_t size = std::get<1>(f);
@@ -260,7 +259,7 @@ void RtpPacketizerH264::MakeFuAPacket(const uint8_t *data, size_t length, int64_
         rtpPacket->SetCapacity(RTP_OVER_UDP_PACKET_PAYLOAD_MAX_SIZE + RTP_PACKET_HEADER_DEFAULT_SIZE);
 
         if (i == segmentCount - 1) {
-            FillRtpHeader(header, 96, myts, true); // fill header
+            FillRtpHeader(header, 96, myts, true);  // fill header
         } else {
             FillRtpHeader(header, 96, myts, false); // fill header
         }

@@ -61,18 +61,18 @@ bool MediaFileSource::Init()
              audioStream->codecpar->ch_layout.nb_channels);
 
         switch (audioStream->codecpar->codec_id) {
-        case AV_CODEC_ID_PCM_MULAW:
-            audioFmt_ = FRAME_FORMAT_PCMU;
-            break;
-        case AV_CODEC_ID_PCM_ALAW:
-            audioFmt_ = FRAME_FORMAT_PCMA;
-            break;
-        case AV_CODEC_ID_AAC:
-            audioFmt_ = FRAME_FORMAT_AAC;
-            break;
-        default:
-            LOGE("Unsupported audio codec");
-            break;
+            case AV_CODEC_ID_PCM_MULAW:
+                audioFmt_ = FRAME_FORMAT_PCMU;
+                break;
+            case AV_CODEC_ID_PCM_ALAW:
+                audioFmt_ = FRAME_FORMAT_PCMA;
+                break;
+            case AV_CODEC_ID_AAC:
+                audioFmt_ = FRAME_FORMAT_AAC;
+                break;
+            default:
+                LOGE("Unsupported audio codec");
+                break;
         }
 
         if (audioFmt_ != FRAME_FORMAT_UNKNOWN) {
@@ -80,6 +80,7 @@ bool MediaFileSource::Init()
             audioTimeBase_.den = audioStream->codecpar->sample_rate;
             audioInfo_.sampleRate = audioStream->codecpar->sample_rate;
             audioInfo_.channels = audioStream->codecpar->ch_layout.nb_channels;
+            audioInfo_.nbSamples = audioStream->codecpar->frame_size;
         }
     }
 
@@ -91,39 +92,40 @@ bool MediaFileSource::Init()
              video_st->codecpar->height);
 
         switch (video_st->codecpar->codec_id) {
-        case AV_CODEC_ID_VP8:
-            videoFmt_ = FRAME_FORMAT_VP8;
-            break;
-        case AV_CODEC_ID_VP9:
-            videoFmt_ = FRAME_FORMAT_VP9;
-            break;
-        case AV_CODEC_ID_H264: {
-            videoFmt_ = FRAME_FORMAT_H264;
-            LOGD("H264 profile: %s", avcodec_profile_name(video_st->codecpar->codec_id, video_st->codecpar->profile));
+            case AV_CODEC_ID_VP8:
+                videoFmt_ = FRAME_FORMAT_VP8;
+                break;
+            case AV_CODEC_ID_VP9:
+                videoFmt_ = FRAME_FORMAT_VP9;
+                break;
+            case AV_CODEC_ID_H264: {
+                videoFmt_ = FRAME_FORMAT_H264;
+                LOGD("H264 profile: %s",
+                     avcodec_profile_name(video_st->codecpar->codec_id, video_st->codecpar->profile));
 
-            uint8_t *ex = video_st->codecpar->extradata;
-            int spsLength = (ex[6] << 8) | ex[7];
-            int ppsLength = (ex[8 + spsLength + 1] << 8) | ex[8 + spsLength + 2];
+                uint8_t *ex = video_st->codecpar->extradata;
+                int spsLength = (ex[6] << 8) | ex[7];
+                int ppsLength = (ex[8 + spsLength + 1] << 8) | ex[8 + spsLength + 2];
 
-            uint8_t startCode[4] = {0x00, 0x00, 0x00, 0x01};
-            spsFrame_ = std::make_shared<Frame>(spsLength + 4);
-            spsFrame_->format = FRAME_FORMAT_H264;
-            spsFrame_->Assign(startCode, 4);
-            spsFrame_->Append(ex + 8, spsLength);
+                uint8_t startCode[4] = {0x00, 0x00, 0x00, 0x01};
+                spsFrame_ = std::make_shared<Frame>(spsLength + 4);
+                spsFrame_->format = FRAME_FORMAT_H264;
+                spsFrame_->Assign(startCode, 4);
+                spsFrame_->Append(ex + 8, spsLength);
 
-            ppsFrame_ = std::make_shared<Frame>(ppsLength + 4);
-            ppsFrame_->format = FRAME_FORMAT_H264;
-            ppsFrame_->Assign(startCode, 4);
-            ppsFrame_->Append(ex + 8 + spsLength + 2 + 1, ppsLength);
+                ppsFrame_ = std::make_shared<Frame>(ppsLength + 4);
+                ppsFrame_->format = FRAME_FORMAT_H264;
+                ppsFrame_->Assign(startCode, 4);
+                ppsFrame_->Append(ex + 8 + spsLength + 2 + 1, ppsLength);
 
-            break;
-        }
-        case AV_CODEC_ID_H265:
-            videoFmt_ = FRAME_FORMAT_H265;
-            break;
-        default:
-            LOGE("Unsupported video codec");
-            break;
+                break;
+            }
+            case AV_CODEC_ID_H265:
+                videoFmt_ = FRAME_FORMAT_H265;
+                break;
+            default:
+                LOGE("Unsupported video codec");
+                break;
         }
 
         if (videoFmt_ != FRAME_FORMAT_UNKNOWN) {
@@ -158,7 +160,7 @@ void MediaFileSource::ReceiveDataLoop()
 
     while (running_ && av_read_frame(avFmtCtx_, avPacket_) == 0) {
         if (avPacket_->stream_index == videoStreamIndex_) { // pakcet is video
-            LOGD("Get video frame packet, dts %ld, size %d", avPacket_->dts, avPacket_->size);
+            LOGD("read video packet, dts: %ld, pts: %ld, size: %d", avPacket_->dts, avPacket_->pts, avPacket_->size);
 
             int nalLength = 0;
             uint8_t *data = avPacket_->data;
@@ -177,7 +179,7 @@ void MediaFileSource::ReceiveDataLoop()
 
                     auto frame = std::make_shared<Frame>(nalLength + 4);
                     frame->format = videoFmt_;
-                    // frame->timestamp = 0;
+                    frame->timestamp = avPacket_->pts;
                     frame->videoInfo.width = videoInfo_.width;
                     frame->videoInfo.height = videoInfo_.height;
                     frame->videoInfo.isKeyFrame = isKeyFrame;
@@ -202,16 +204,17 @@ void MediaFileSource::ReceiveDataLoop()
             }
         } else if (avPacket_->stream_index == audioStreamIndex_) {
             static int audioCount = 0;
+            LOGD("reaad audio packet ts: %ld, size: %d", avPacket_->dts, avPacket_->size);
             AVStream *audioStream = avFmtCtx_->streams[audioStreamIndex_];
             avPacket_->dts = av_rescale_q(avPacket_->dts, audioStream->time_base, msTimeBase_);
             avPacket_->pts = av_rescale_q(avPacket_->pts, audioStream->time_base, msTimeBase_);
 
             auto frame = std::make_shared<Frame>(avPacket_->size);
             frame->format = audioFmt_;
-            // frame->timestamp = 0;
+            frame->timestamp = avPacket_->pts;
             frame->audioInfo.channels = audioInfo_.channels;
             frame->audioInfo.sampleRate = audioInfo_.sampleRate;
-            frame->audioInfo.nbSamples = 1024; // aac
+            frame->audioInfo.nbSamples = audioInfo_.nbSamples;
             frame->Assign(avPacket_->data, avPacket_->size);
 
             LOGD("audio frame count: %d, len = %zu", ++audioCount, frame->Size());
