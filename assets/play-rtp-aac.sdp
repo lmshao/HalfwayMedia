@@ -1,0 +1,5 @@
+m=audio 1236 RTP/AVP 97
+a=rtpmap:97 MPEG4-GENERIC/48000/2
+c=IN IP4 127.0.0.1
+a=fmtp:97 profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3;config=119056E500
+s=Sample Audio
