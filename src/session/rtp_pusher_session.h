@@ -5,8 +5,8 @@
 #ifndef HALFWAY_MEDIA_SESSION_RTP_PUSHER_SESSION_H
 #define HALFWAY_MEDIA_SESSION_RTP_PUSHER_SESSION_H
 
-#include "agent/base/media_sink.h"
-#include "agent/base/media_source.h"
+#include "../agent/base/media_sink.h"
+#include "../agent/base/media_source.h"
 #include <cstdint>
 #include <string>
 

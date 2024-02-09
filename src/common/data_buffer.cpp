@@ -203,3 +203,11 @@ void DataBuffer::HexDump(size_t len)
         printf("\n");
     }
 }
+
+std::string DataBuffer::ToString()
+{
+    if (!data_ || size_ == 0) {
+        return {};
+    }
+    return std::string((char *)data_, size_);
+}

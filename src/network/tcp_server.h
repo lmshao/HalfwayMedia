@@ -14,10 +14,9 @@
 #include <netinet/in.h>
 #include <string>
 
-const int INVALID_SOCKET = -1;
-
 class TcpServer final : public BaseServer, public std::enable_shared_from_this<TcpServer> {
     friend class EventProcessor;
+    const int INVALID_SOCKET = -1;
 
 public:
     template <typename... Args>
@@ -43,7 +42,7 @@ protected:
 
 private:
     uint16_t localPort_;
-    int socket_ = INVALID_SOCKET;
+    int socket_          = INVALID_SOCKET;
     std::string localIp_ = "0.0.0.0";
     struct sockaddr_in serverAddr_;
 

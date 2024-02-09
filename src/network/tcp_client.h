@@ -12,10 +12,9 @@
 #include <netinet/in.h>
 #include <string>
 
-const int INVALID_SOCKET = -1;
-
 class TcpClient final {
     friend class EventProcessor;
+    const int INVALID_SOCKET = -1;
 
 public:
     template <typename... Args>

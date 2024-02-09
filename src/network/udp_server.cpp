@@ -7,11 +7,15 @@
 #include "../common/thread_pool.h"
 #include "event_processor.h"
 #include <arpa/inet.h>
+#include <cstdint>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 const int RECV_BUFFER_MAX_SIZE = 4096;
+const uint16_t UDP_SERVER_DEFAULT_PORT_START = 10000;
+
+static uint16_t idlePort_ = UDP_SERVER_DEFAULT_PORT_START;
 
 UdpServer::~UdpServer()
 {
@@ -133,6 +137,58 @@ void UdpServer::HandleReceive(int fd)
                     listener->OnReceive(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()), dataBuffer);
                 }
             });
+        }
+    }
+}
+
+uint16_t UdpServer::GetIdlePort()
+{
+    int sock;
+    struct sockaddr_in addr;
+
+    uint16_t i;
+    for (i = idlePort_; i < idlePort_ + 100; i++) {
+        sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock < 0) {
+            perror("socket creation failed");
+            return -1;
+        }
+
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(i);
+
+        if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            close(sock);
+            continue;
+        }
+
+        close(sock);
+        break;
+    }
+
+    if (i == idlePort_ + 100) {
+        LOGE("Can't find idle port");
+        return 0;
+    }
+
+    idlePort_ = i + 1;
+
+    return i;
+}
+
+uint16_t UdpServer::GetIdlePortPair()
+{
+    uint16_t firstPort;
+    uint16_t secondPort;
+    firstPort = GetIdlePort();
+
+    while (true) {
+        secondPort = GetIdlePort();
+        if (firstPort + 1 == secondPort || secondPort == 0) {
+            return firstPort;
+        } else {
+            firstPort = secondPort;
         }
     }
 }

@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <memory>
 
+#define RtpSender RtpSink
+
 class RtpSink : public MediaSink {
 public:
     ~RtpSink() override;
@@ -42,8 +44,8 @@ private:
     std::string remoteIp_;
     uint16_t remoteVideoPort_ = 0;
     uint16_t remoteAudioPort_ = 0;
-    uint16_t localVideoPort_ = 0;
-    uint16_t localAudioPort_ = 0;
+    uint16_t localVideoPort_  = 0;
+    uint16_t localAudioPort_  = 0;
 
     std::unique_ptr<UdpClient> videoUdpClient_;
     std::unique_ptr<UdpClient> audioUdpClient_;

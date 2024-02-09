@@ -12,7 +12,7 @@ bool MediaSource::Init()
 bool MediaSource::Start()
 {
     workerThread_ = std::make_unique<std::thread>(&MediaSource::ReceiveDataLoop, this);
-    return true;
+    return workerThread_ != nullptr;
 }
 
 MediaSource::~MediaSource()

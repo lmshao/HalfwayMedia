@@ -5,7 +5,7 @@
 #ifndef HALFWAY_MEDIA_MEDIA_SINK_H
 #define HALFWAY_MEDIA_MEDIA_SINK_H
 
-#include "../base/media_frame_pipeline.h"
+#include "media_frame_pipeline.h"
 
 class MediaSink : public FrameSink {
 public:

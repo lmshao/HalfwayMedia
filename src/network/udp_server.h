@@ -14,10 +14,9 @@
 #include <string>
 #include <unordered_map>
 
-const int INVALID_SOCKET = -1;
-
 class UdpServer final : public BaseServer, public std::enable_shared_from_this<UdpServer> {
     friend class EventProcessor;
+    const int INVALID_SOCKET = -1;
 
 public:
     template <typename... Args>
@@ -33,6 +32,9 @@ public:
     bool Start() override;
     bool Stop() override;
     bool Send(int fd, std::string host, uint16_t port, std::shared_ptr<DataBuffer> buffer) override;
+
+    static uint16_t GetIdlePort();
+    static uint16_t GetIdlePortPair();
 
 protected:
     UdpServer(std::string listenIp, uint16_t listenPort) : localIp_(listenIp), localPort_(listenPort) {}

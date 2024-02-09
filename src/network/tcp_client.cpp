@@ -37,7 +37,7 @@ bool TcpClient::Init()
         struct sockaddr_in localAddr;
         memset(&localAddr, 0, sizeof(localAddr));
         localAddr.sin_family = AF_INET;
-        localAddr.sin_port = htons(localPort_);
+        localAddr.sin_port   = htons(localPort_);
         if (localIp_.empty()) {
             localIp_ = "0.0.0.0";
         }
@@ -67,7 +67,7 @@ bool TcpClient::Connect()
     }
 
     serverAddr_.sin_family = AF_INET;
-    serverAddr_.sin_port = htons(remotePort_);
+    serverAddr_.sin_port   = htons(remotePort_);
     if (remoteIp_.empty()) {
         remoteIp_ = "127.0.0.1";
     }
@@ -83,6 +83,7 @@ bool TcpClient::Connect()
         EventProcessor::GetInstance()->AddConnectionFd(socket_, [&](int fd) { this->HandleReceive(fd); });
     }
 
+    LOGD("Connect (%s:%d) success.", remoteIp_.c_str(), remotePort_);
     return true;
 }
 

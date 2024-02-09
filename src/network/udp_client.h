@@ -14,10 +14,9 @@
 #include <string>
 #include <thread>
 
-const int INVALID_SOCKET = -1;
-
 class UdpClient final {
     friend class EventProcessor;
+    const int INVALID_SOCKET = -1;
 
 public:
     template <typename... Args>

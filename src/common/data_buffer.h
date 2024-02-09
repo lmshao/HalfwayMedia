@@ -43,6 +43,7 @@ public:
     bool Empty() const { return size_ == 0; }
     void Clear();
     void HexDump(size_t len = 0);
+    std::string ToString();
 
 private:
     uint8_t *data_ = nullptr;
