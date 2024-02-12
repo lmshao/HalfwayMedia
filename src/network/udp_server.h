@@ -33,6 +33,8 @@ public:
     bool Stop() override;
     bool Send(int fd, std::string host, uint16_t port, std::shared_ptr<DataBuffer> buffer) override;
 
+    int GetSocketFd() const { return socket_; }
+
     static uint16_t GetIdlePort();
     static uint16_t GetIdlePortPair();
 

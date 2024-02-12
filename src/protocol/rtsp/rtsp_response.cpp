@@ -149,3 +149,61 @@ int RtspResponseDescribe::GetContentLength()
 
     return std::stoi(length);
 }
+
+RtspResponse &RtspResponseSetup::SetTransport(std::string transport)
+{
+    SetHeaders(ResponseHeader::TRANSPORT, transport);
+    return *this;
+}
+
+std::string RtspResponseSetup::GetTransport()
+{
+    std::string transport = GetHeader(ResponseHeader::TRANSPORT);
+    return transport;
+}
+
+std::pair<uint16_t, uint16_t> RtspResponseSetup::GetServerPort()
+{
+    std::string transport = GetHeader(ResponseHeader::TRANSPORT);
+    if (!transport.empty()) {
+        std::regex pattern("server_port=([0-9]+)-([0-9]+)");
+        std::smatch matches;
+        if (std::regex_search(transport, matches, pattern)) {
+            if (matches.size() == 3) {
+                uint16_t rtpPort = std::stoi(matches[1]);
+                uint16_t rtcpPort = std::stoi(matches[2]);
+                return {rtpPort, rtcpPort};
+            }
+        }
+    }
+
+    return {0, 0};
+}
+
+std::string RtspResponseSetup::GetSession()
+{
+    auto session = GetHeader(ResponseHeader::SESSION);
+    auto i = session.find(";timeout");
+    if (i != std::string::npos) {
+        session = session.substr(0, i);
+    }
+    return session;
+}
+
+int RtspResponseSetup::GetTimeout()
+{
+    auto session = GetHeader(ResponseHeader::SESSION);
+    std::string mark(";timeout");
+    auto i = session.find(mark);
+    if (i != std::string::npos) {
+        auto timeout = session.substr(i + mark.size() + 1);
+        return std::stoi(timeout);
+    }
+    return 0;
+}
+
+RtspResponse &RtspResponsePlay::SetRange(std::string range)
+{
+    SetHeaders(ResponseHeader::RANGE, range);
+    return *this;
+}

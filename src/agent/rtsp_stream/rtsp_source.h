@@ -12,6 +12,7 @@
 #include "../../protocol/rtsp/rtsp_sdp.h"
 #include "../../protocol/rtsp/rtsp_url.h"
 #include "../base/media_source.h"
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -19,7 +20,7 @@
 
 #define RtspClient RtspSource
 
-class RtspSource : public MediaSource, public IClientListener {
+class RtspSource : public MediaSource, public IClientListener, public IServerListener {
 public:
     ~RtspSource() = default;
 
@@ -38,6 +39,12 @@ public:
     void OnClose() override;
     void OnError(const std::string &errorInfo) override;
 
+    // impl IServerListener of UDP Servers
+    void OnError(std::shared_ptr<Session> clientSession, const std::string &errorInfo) override;
+    void OnClose(std::shared_ptr<Session> clientSession) override {}
+    void OnAccept(std::shared_ptr<Session> clientSession) override {}
+    void OnReceive(std::shared_ptr<Session> clientSession, std::shared_ptr<DataBuffer> buffer) override;
+
 private:
     RtspSource() = default;
     explicit RtspSource(std::string url) : url_(std::move(url)) {}
@@ -45,23 +52,34 @@ private:
     // impl MediaSource
     void ReceiveDataLoop() override;
 
-    bool SendRtspOptions();
+    bool SendRequestOptions();
     void HandleResponseOptions(RtspResponse &response);
-    bool SendRtspDescribe();
+
+    bool SendRequestDescribe();
     void HandleResponseDescribe(RtspResponse &response);
-    bool SendRtspSetup(MediaType type);
+
+    bool SendRequestSetup(MediaType type);
     void HandleResponseSetup(RtspResponse &response);
-    bool SendRtspPlay();
+
+    bool SendRequestPlay();
     void HandleResponsePlay(RtspResponse &response);
+
+    bool StartRtpServers();
 
 private:
     int cseq_ = 0;
+    int timeout_ = 0;
     std::string url_;
     RtspUrl rtspUrl_;
     std::string baseUrl_;
     RtspSdp sdp_;
     std::string session_;
     MediaType setupType_;
+
+    uint16_t remoteVideoRtpPort_ = 0;
+    uint16_t remoteVideoRtcpPort_ = 0;
+    uint16_t remoteAudioRtpPort_ = 0;
+    uint16_t remoteAudioRtcpPort_ = 0;
 
     std::shared_ptr<UdpServer> videoRtpServer_;
     std::shared_ptr<UdpServer> videoRtcpServer_;

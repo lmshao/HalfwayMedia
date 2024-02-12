@@ -10,8 +10,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <regex>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 enum class ResponseHeader : uint8_t {
@@ -133,33 +135,11 @@ public:
     explicit RtspResponseSetup(StatusCode code) : RtspResponse(code) {}
     explicit RtspResponseSetup(const RtspResponse &response) : RtspResponse(response) {}
 
-    RtspResponse &SetTransport(std::string transport)
-    {
-        SetHeaders(ResponseHeader::TRANSPORT, transport);
-        return *this;
-    }
-
-    std::string GetSession()
-    {
-        auto session = GetHeader(ResponseHeader::SESSION);
-        auto i = session.find(";timeout");
-        if (i != std::string::npos) {
-            session = session.substr(0, i);
-        }
-        return session;
-    }
-
-    int GetTimeout()
-    {
-        auto session = GetHeader(ResponseHeader::SESSION);
-        std::string mark(";timeout");
-        auto i = session.find(mark);
-        if (i != std::string::npos) {
-            auto timeout = session.substr(i + mark.size() + 1);
-            return std::stoi(timeout);
-        }
-        return 0;
-    }
+    RtspResponse &SetTransport(std::string transport);
+    std::string GetTransport();
+    std::pair<uint16_t, uint16_t> GetServerPort();
+    std::string GetSession();
+    int GetTimeout();
 };
 
 class RtspResponsePlay : public RtspResponse {
@@ -167,11 +147,9 @@ public:
     explicit RtspResponsePlay(StatusCode code) : RtspResponse(code) {}
     explicit RtspResponsePlay(const RtspResponse &response) : RtspResponse(response) {}
 
-    RtspResponse &SetRange(std::string range)
-    {
-        SetHeaders(ResponseHeader::RANGE, range);
-        return *this;
-    }
+    RtspResponse &SetRange(std::string range);
+
+    std::string GetRtpInfo() { return GetHeader(ResponseHeader::RTP_INFO); }
 };
 
 class RtspResponseTeardown : public RtspResponse {

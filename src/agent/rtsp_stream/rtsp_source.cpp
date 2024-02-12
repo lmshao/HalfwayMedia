@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <functional>
 #include <memory>
+#include <string>
+#include <utility>
 
 const char *RTSP_USER_AGENT = "HalfwatMedia/2.0";
 const char *MIME_SDP = "application/sdp";
@@ -41,7 +43,7 @@ bool RtspSource::Init()
 
 bool RtspSource::Start()
 {
-    if (!SendRtspOptions()) {
+    if (!SendRequestOptions()) {
         LOGE("Send OPTIONS error");
         return false;
     }
@@ -88,7 +90,47 @@ void RtspSource::OnError(const std::string &errorInfo)
     LOGW("Server error %s", errorInfo.c_str());
 }
 
-bool RtspSource::SendRtspOptions()
+void RtspSource::OnError(std::shared_ptr<Session> clientSession, const std::string &errorInfo)
+{
+    if (clientSession->fd == 0) {
+        LOGE("Unexpected situation");
+        return;
+    }
+
+    if (videoRtpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Video Rtp connection error: %s", errorInfo.c_str());
+    } else if (videoRtcpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Video Rtcp connection error: %s", errorInfo.c_str());
+    } else if (audioRtpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Audio Rtp connection error: %s", errorInfo.c_str());
+    } else if (audioRtcpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Audio Rtcp connection error: %s", errorInfo.c_str());
+    } else {
+        LOGE("Unexpected situation");
+    }
+}
+
+void RtspSource::OnReceive(std::shared_ptr<Session> clientSession, std::shared_ptr<DataBuffer> buffer)
+{
+    if (clientSession->fd == 0) {
+        LOGE("Unexpected situation");
+        return;
+    }
+
+    if (videoRtpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Video Rtp recv %zu bytes", buffer->Size());
+    } else if (videoRtcpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Video Rtcp recv %zu bytes", buffer->Size());
+    } else if (audioRtpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Audio Rtp recv %zu bytes", buffer->Size());
+    } else if (audioRtcpServer_->GetSocketFd() == clientSession->fd) {
+        LOGD("Audio Rtcp recv %zu bytes", buffer->Size());
+    } else {
+        LOGE("Unexpected situation");
+    }
+}
+
+bool RtspSource::SendRequestOptions()
 {
     RtspRequestOptions request(url_);
     request.SetCSeq(++cseq_);
@@ -112,10 +154,10 @@ void RtspSource::HandleResponseOptions(RtspResponse &response)
         LOGD("Public item: %s", p.c_str());
     }
 
-    SendRtspDescribe();
+    SendRequestDescribe();
 }
 
-bool RtspSource::SendRtspDescribe()
+bool RtspSource::SendRequestDescribe()
 {
     RtspRequestDescribe request(url_);
     request.SetCSeq(++cseq_);
@@ -156,15 +198,15 @@ void RtspSource::HandleResponseDescribe(RtspResponse &response)
     audioTrack_ = sdp_.GetAudioTrack();
 
     if (videoTrack_) {
-        SendRtspSetup(VIDEO);
+        SendRequestSetup(VIDEO);
     } else if (audioTrack_) {
-        SendRtspSetup(AUDIO);
+        SendRequestSetup(AUDIO);
     } else {
         LOGE("Can't find video & audio track from sdp");
     }
 }
 
-bool RtspSource::SendRtspSetup(MediaType type)
+bool RtspSource::SendRequestSetup(MediaType type)
 {
     RtspRequestSetup request;
     if (type == VIDEO) {
@@ -173,6 +215,8 @@ bool RtspSource::SendRtspSetup(MediaType type)
         uint16_t videoRtpPort = UdpServer::GetIdlePortPair();
         videoRtpServer_ = UdpServer::Create(videoRtpPort);
         videoRtcpServer_ = UdpServer::Create(videoRtpPort + 1);
+        videoRtpServer_->SetListener(std::dynamic_pointer_cast<RtspSource>(shared_from_this()));
+        videoRtcpServer_->SetListener(std::dynamic_pointer_cast<RtspSource>(shared_from_this()));
 
         request.SetTransport(videoRtpPort, videoRtpPort + 1); // SET VIDEO RTP SERVER PORT
         setupType_ = VIDEO;
@@ -183,6 +227,8 @@ bool RtspSource::SendRtspSetup(MediaType type)
         uint16_t audioRtpPort = UdpServer::GetIdlePortPair();
         audioRtpServer_ = UdpServer::Create(audioRtpPort);
         audioRtcpServer_ = UdpServer::Create(audioRtpPort + 1);
+        audioRtpServer_->SetListener(std::dynamic_pointer_cast<RtspSource>(shared_from_this()));
+        audioRtcpServer_->SetListener(std::dynamic_pointer_cast<RtspSource>(shared_from_this()));
 
         request.SetTransport(audioRtpPort, audioRtpPort + 1); // SET AUDIO RTP SERVER PORT
         setupType_ = AUDIO;
@@ -212,31 +258,34 @@ void RtspSource::HandleResponseSetup(RtspResponse &response)
     RtspResponseSetup setup(response);
 
     session_ = setup.GetSession();
+    timeout_ = setup.GetTimeout();
 
-    // Response: RTSP/1.0 200 OK\r\n
-    // CSeq: 5\r\n
-    // Date: Tue, Feb 06 2024 07:42:14 GMT\r\n
-    // Transport:
-    // RTP/AVP;unicast;destination=192.168.1.100;source=192.168.1.101;client_port=62874-62875;server_port=6972-6973
-    // Session: C1D99D46;timeout=65
+    std::pair<uint16_t, uint16_t> sport = setup.GetServerPort();
+    LOGD("server_port: %d/rtp, %d/rtcp", sport.first, sport.second);
 
     if (setupType_ == VIDEO) {
-        // TODO: handle video setup response
+        remoteVideoRtpPort_ = sport.first;
+        remoteAudioRtcpPort_ = sport.second;
 
         if (audioTrack_) {
-
-            SendRtspSetup(AUDIO);
+            SendRequestSetup(AUDIO);
             return;
         }
     } else if (setupType_ == AUDIO) {
-        // TODO: handle audio setup response
+        remoteAudioRtpPort_ = sport.first;
+        remoteAudioRtcpPort_ = sport.second;
     }
 
-    SendRtspPlay();
+    SendRequestPlay();
 }
 
-bool RtspSource::SendRtspPlay()
+bool RtspSource::SendRequestPlay()
 {
+    if (!StartRtpServers()) {
+        LOGE("Start rtp server failed.");
+        return false;
+    }
+
     RtspRequestPlay request(baseUrl_);
     request.SetCSeq(++cseq_);
     request.SetUserAgent(RTSP_USER_AGENT);
@@ -255,4 +304,44 @@ bool RtspSource::SendRtspPlay()
     return false;
 }
 
-void RtspSource::HandleResponsePlay(RtspResponse &response) {}
+void RtspSource::HandleResponsePlay(RtspResponse &response)
+{
+    RtspResponsePlay play(response);
+
+    std::string info = play.GetRtpInfo();
+    LOGD("RTP-Info: %s", info.c_str());
+}
+
+bool RtspSource::StartRtpServers()
+{
+
+    if (videoRtpServer_) {
+        if (!videoRtpServer_->Init() || !videoRtpServer_->Start()) {
+            LOGE("Start video RTP server failed.");
+            return false;
+        }
+    }
+
+    if (videoRtcpServer_) {
+        if (!videoRtcpServer_->Init() || !videoRtcpServer_->Start()) {
+            LOGE("Start video RTP server failed.");
+            return false;
+        }
+    }
+
+    if (audioRtpServer_) {
+        if (!audioRtpServer_->Init() || !audioRtpServer_->Start()) {
+            LOGE("Start video RTP server failed.");
+            return false;
+        }
+    }
+
+    if (audioRtcpServer_) {
+        if (!audioRtcpServer_->Init() || !audioRtcpServer_->Start()) {
+            LOGE("Start video RTP server failed.");
+            return false;
+        }
+    }
+
+    return true;
+}

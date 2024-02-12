@@ -9,10 +9,11 @@
 
 class SessionImpl : public Session {
 public:
-    SessionImpl(int fd, std::string host, uint16_t port, std::shared_ptr<BaseServer> server) : fd_(fd), server_(server)
+    SessionImpl(int fd, std::string host, uint16_t port, std::shared_ptr<BaseServer> server) : server_(server)
     {
         this->host = host;
         this->port = port;
+        this->fd = fd;
     }
 
     virtual ~SessionImpl() = default;
@@ -21,7 +22,7 @@ public:
     {
         auto server = server_.lock();
         if (server) {
-            return server->Send(fd_, host, port, buffer);
+            return server->Send(fd, host, port, buffer);
         }
         LOGE("server is invalid");
         return false;
@@ -30,12 +31,11 @@ public:
     std::string ClientInfo() const
     {
         std::stringstream ss;
-        ss << host << ":" << port << " (" << fd_ << ")";
+        ss << host << ":" << port << " (" << fd << ")";
         return ss.str();
     }
 
 private:
-    int fd_ = 0;
     std::weak_ptr<BaseServer> server_;
 };
 
