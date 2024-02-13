@@ -145,13 +145,16 @@ public:
 
     static std::shared_ptr<RtpDepacketizer> Create(FrameFormat format);
 
-    virtual void Depacketize() = 0;
+    virtual void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) = 0;
+    virtual void SetExtraData(void *extra) {}
+
+    void SetCallback(const std::function<void(std::shared_ptr<Frame>)> callback) { depacketizeCallback_ = callback; }
 
 protected:
     RtpDepacketizer() = default;
 
 protected:
-    std::function<void(const void *, size_t)> packetizeCallback_;
+    std::function<void(std::shared_ptr<Frame>)> depacketizeCallback_;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H

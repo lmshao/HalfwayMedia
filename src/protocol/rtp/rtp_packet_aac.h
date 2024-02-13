@@ -14,7 +14,13 @@ public:
 
 class RtpDepacketizerAAC : public RtpDepacketizer {
 public:
-    void Depacketize() override;
+    void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) override;
+    void SetExtraData(void *extra) override;
+
+private:
+    uint8_t channels_;
+    uint32_t nbSamples_;
+    uint32_t sampleRate_;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_AAC_H

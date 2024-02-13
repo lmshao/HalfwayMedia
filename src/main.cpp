@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     auto rtspRecoderSession = std::make_unique<RtspRecoderSession>();
 
     rtspRecoderSession->SetSourceUrl("rtsp://192.168.1.20:8554/Luca-30s-720p.mkv");
-    rtspRecoderSession->SetRecorderFileName("recorder.h264");
+    rtspRecoderSession->SetRecorderFileName("recorder");
 
     if (!rtspRecoderSession->Init()) {
         LOGE("RTP session init failed");

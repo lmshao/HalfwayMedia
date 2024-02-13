@@ -33,15 +33,15 @@ bool RtspRecoderSession::Init()
         return false;
     }
 
-    sink_ = RawFileSink::Create(filename_);
+    sink_ = RawFileSink::Create(filename_ + ".aac");
 
     if (!sink_->Init()) {
         LOGE("source init failed");
         return false;
     }
 
-    source_->AddVideoSink(sink_);
-    // source_->AddAudioSink(sink_);
+    // source_->AddVideoSink(sink_);
+    source_->AddAudioSink(sink_);
     return true;
 }
 

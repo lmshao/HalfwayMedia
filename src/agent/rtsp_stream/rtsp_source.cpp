@@ -119,12 +119,22 @@ void RtspSource::OnReceive(std::shared_ptr<Session> clientSession, std::shared_p
 
     if (videoRtpServer_->GetSocketFd() == clientSession->fd) {
         LOGD("Video Rtp recv %zu bytes", buffer->Size());
+
+        if (videoDepacketizer_) {
+            videoDepacketizer_->Depacketize(buffer);
+        }
     } else if (videoRtcpServer_->GetSocketFd() == clientSession->fd) {
         LOGD("Video Rtcp recv %zu bytes", buffer->Size());
+
     } else if (audioRtpServer_->GetSocketFd() == clientSession->fd) {
         LOGD("Audio Rtp recv %zu bytes", buffer->Size());
+
+        if (audioDepacketizer_) {
+            audioDepacketizer_->Depacketize(buffer);
+        }
     } else if (audioRtcpServer_->GetSocketFd() == clientSession->fd) {
         LOGD("Audio Rtcp recv %zu bytes", buffer->Size());
+
     } else {
         LOGE("Unexpected situation");
     }
@@ -196,6 +206,46 @@ void RtspSource::HandleResponseDescribe(RtspResponse &response)
 
     videoTrack_ = sdp_.GetVideoTrack();
     audioTrack_ = sdp_.GetAudioTrack();
+
+    if (videoTrack_) {
+        int pt, clockCycle;
+        std::string format;
+        if (videoTrack_->GetVideoConfig(pt, format, clockCycle)) {
+            if (format == "H264") {
+                videoDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_H264);
+                if (!videoDepacketizer_) {
+                    LOGE("Create RtpDepacketizer for aac failed");
+                    return;
+                }
+
+                videoDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
+            } else {
+                LOGE("Unsupported Video format %s", format.c_str());
+                return;
+            }
+        }
+    }
+
+    if (audioTrack_) {
+        int pt, samplingRate, channels;
+        std::string format;
+        if (audioTrack_->GetAudioConfig(pt, format, samplingRate, channels)) {
+            if (format == "MPEG4-GENERIC") {
+                audioDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_AAC);
+                if (!audioDepacketizer_) {
+                    LOGE("Create RtpDepacketizer for aac failed");
+                    return;
+                }
+
+                AudioFrameInfo info{(uint8_t)channels, 1024, (uint32_t)samplingRate};
+                audioDepacketizer_->SetExtraData(&info);
+                audioDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
+            } else {
+                LOGE("Unsupported Audio format %s", format.c_str());
+                return;
+            }
+        }
+    }
 
     if (videoTrack_) {
         SendRequestSetup(VIDEO);

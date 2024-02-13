@@ -198,7 +198,7 @@ bool MediaDescription::GetVideoConfig(int &pt, std::string &format, int &clockCy
             clockCycle = std::stoi(sm[3]);
         }
     }
-    return false;
+    return true;
 }
 
 std::shared_ptr<DataBuffer> MediaDescription::GetVideoSps()

@@ -3,9 +3,11 @@
 //
 
 #include "rtp_packet_aac.h"
-#include "common/log.h"
+#include "../../common/log.h"
+#include "../aac/adts_header.h"
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <netinet/in.h>
 
 void RtpPacketizerAAC::Packetize(const std::shared_ptr<Frame> &frame)
@@ -29,7 +31,7 @@ void RtpPacketizerAAC::Packetize(const std::shared_ptr<Frame> &frame)
     }
 
     uint16_t auHeaderLength = htons(16);      // 16-bits AU headers-length
-    uint16_t auHeader = (size << 3) & 0xfff8; // 13bit AU-size、3bit AU-Index/AU-Index-delta
+    uint16_t auHeader = (size << 3) & 0xfff8; // 13bit AU-size/3bit AU-Index/AU-Index-delta
 
     std::shared_ptr<DataBuffer> rtpPacket = std::make_shared<DataBuffer>(RTP_PACKET_HEADER_DEFAULT_SIZE + 4 + size);
 
@@ -47,4 +49,29 @@ void RtpPacketizerAAC::Packetize(const std::shared_ptr<Frame> &frame)
     }
 }
 
-void RtpDepacketizerAAC::Depacketize() {}
+void RtpDepacketizerAAC::Depacketize(std::shared_ptr<DataBuffer> dataBuffer)
+{
+    LOGD("size: %zu", dataBuffer->Size());
+    dataBuffer->HexDump(32);
+
+    auto frame = std::make_shared<Frame>();
+    frame->format = FRAME_FORMAT_AAC;
+    frame->audioInfo.channels = channels_;
+    frame->audioInfo.nbSamples = nbSamples_;
+    frame->audioInfo.sampleRate = sampleRate_;
+
+    int adtsLength = dataBuffer->Size() - 12 - 4;
+    ADTSHeader header;
+    header.SetChannel(channels_).SetSamplingFrequency(sampleRate_).SetLength(adtsLength + 7);
+    frame->Assign(&header, sizeof(header));
+    frame->Append(dataBuffer->Data() + 12 + 4, adtsLength);
+    depacketizeCallback_(frame);
+}
+
+void RtpDepacketizerAAC::SetExtraData(void *extra)
+{
+    AudioFrameInfo *info = (AudioFrameInfo *)extra;
+    channels_ = info->channels;
+    nbSamples_ = info->nbSamples;
+    sampleRate_ = info->sampleRate;
+}

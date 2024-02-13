@@ -77,7 +77,7 @@ private:
 
 class RtpDepacketizerH264 : public RtpDepacketizer {
 public:
-    void Depacketize() override {}
+    void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) override;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H264_H

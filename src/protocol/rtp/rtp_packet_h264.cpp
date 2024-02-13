@@ -259,7 +259,7 @@ void RtpPacketizerH264::MakeFuAPacket(const uint8_t *data, size_t length, int64_
         rtpPacket->SetCapacity(RTP_OVER_UDP_PACKET_PAYLOAD_MAX_SIZE + RTP_PACKET_HEADER_DEFAULT_SIZE);
 
         if (i == segmentCount - 1) {
-            FillRtpHeader(header, 96, myts, true);  // fill header
+            FillRtpHeader(header, 96, myts, true); // fill header
         } else {
             FillRtpHeader(header, 96, myts, false); // fill header
         }
@@ -289,4 +289,10 @@ void RtpPacketizerH264::MakeFuAPacket(const uint8_t *data, size_t length, int64_
             packetizeCallback_(rtpPacket);
         }
     }
+}
+
+void RtpDepacketizerH264::Depacketize(std::shared_ptr<DataBuffer> dataBuffer)
+{
+    LOGD("size: %zu", dataBuffer->Size());
+    dataBuffer->HexDump(32);
 }

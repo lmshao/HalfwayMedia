@@ -8,6 +8,7 @@
 #include "../../common/frame.h"
 #include "../../network/tcp_client.h"
 #include "../../network/udp_server.h"
+#include "../../protocol/rtp/rtp_packet.h"
 #include "../../protocol/rtsp/rtsp_response.h"
 #include "../../protocol/rtsp/rtsp_sdp.h"
 #include "../../protocol/rtsp/rtsp_url.h"
@@ -85,6 +86,10 @@ private:
     std::shared_ptr<UdpServer> videoRtcpServer_;
     std::shared_ptr<UdpServer> audioRtpServer_;
     std::shared_ptr<UdpServer> audioRtcpServer_;
+
+    std::shared_ptr<RtpDepacketizer> videoDepacketizer_;
+    std::shared_ptr<RtpDepacketizer> audioDepacketizer_;
+
     std::unique_ptr<TcpClient> rtspConnectionClient_;
     std::unordered_map<int, std::function<void(RtspResponse &)>> responseHandlers_;
 
