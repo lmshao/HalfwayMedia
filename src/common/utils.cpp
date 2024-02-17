@@ -3,10 +3,7 @@
 //
 
 #include "utils.h"
-#include "log.h"
 #include <chrono>
-#include <stdio.h>
-#include <string.h>
 
 extern "C" {
 #include <libavutil/error.h>

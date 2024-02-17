@@ -9,6 +9,8 @@
 #include "rtp_packet.h"
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <utility>
 #include <vector>
 
@@ -77,7 +79,20 @@ private:
 
 class RtpDepacketizerH264 : public RtpDepacketizer {
 public:
-    void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) override;
+    void DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer) override;
+
+private:
+    void HandleSinglePacket(std::shared_ptr<DataBuffer> dataBuffer);
+    void HandleFuAPacket(std::shared_ptr<DataBuffer> dataBuffer);
+
+    void PopCache();
+
+private:
+    uint16_t lastSeq_;
+    uint32_t lastTs_;
+    int cacheDataLength_;
+    std::mutex mutex_;
+    std::queue<std::shared_ptr<DataBuffer>> cache_;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H264_H

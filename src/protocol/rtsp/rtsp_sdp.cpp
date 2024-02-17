@@ -222,6 +222,10 @@ std::shared_ptr<DataBuffer> MediaDescription::GetVideoPps()
 
 std::pair<int, int> MediaDescription::GetVideoSize()
 {
+    if (sps_ == nullptr) {
+        ParseVideoSpsPps();
+    }
+
     if (sps_ == nullptr || sps_->Size() <= 14) {
         LOGE("sps is invalid");
         return {0, 0};
@@ -377,7 +381,7 @@ bool MediaDescription::ParseVideoSpsPps()
     std::string mark("fmtp:");
     for (auto &a : attributes) {
         if (a.find(mark) != std::string::npos) {
-            std::regex pattern("fmtp:(?:[0-9]+) (?:\\S+)sprop-parameter-sets=([a-zA-Z0-9+=]+),([a-zA-Z0-9+=]+)");
+            std::regex pattern("sprop-parameter-sets=([a-zA-Z0-9+=]+),([a-zA-Z0-9+=]+)");
             std::smatch sm;
             if (!std::regex_search(a, sm, pattern)) {
                 LOGE("error");

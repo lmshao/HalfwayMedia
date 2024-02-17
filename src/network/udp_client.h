@@ -12,7 +12,6 @@
 #include <memory>
 #include <netinet/in.h>
 #include <string>
-#include <thread>
 
 class UdpClient final {
     friend class EventProcessor;

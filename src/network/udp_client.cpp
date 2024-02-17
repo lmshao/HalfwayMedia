@@ -11,7 +11,6 @@
 #include <cstring>
 #include <memory>
 #include <sys/socket.h>
-#include <thread>
 #include <unistd.h>
 
 #define RECV_BUFFER_MAX_SIZE 4096

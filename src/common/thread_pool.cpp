@@ -57,12 +57,19 @@ void ThreadPool::Worker()
         }
 
         std::unique_lock<std::mutex> lock(taskMutex_);
+        if (tasks_.empty()) {
+            continue;
+        }
+
         auto task = tasks_.front();
         tasks_.pop();
         lock.unlock();
 
-        if (task && task->fn) {
-            task->fn((void *)task->data);
+        if (task) {
+            auto fn = task->fn;
+            if (fn) {
+                fn((void *)task->data);
+            }
         }
     }
 }
@@ -75,7 +82,9 @@ void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
     }
 
     auto t = std::make_shared<TaskItem>(task, userData, dataSize);
-    tasks_.emplace(t);
+    std::unique_lock<std::mutex> lock(taskMutex_);
+    tasks_.push(t);
+    lock.unlock();
 
     if (idle_ > 0) {
         signal_.notify_one();

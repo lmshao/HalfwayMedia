@@ -49,10 +49,10 @@ void RtpPacketizerAAC::Packetize(const std::shared_ptr<Frame> &frame)
     }
 }
 
-void RtpDepacketizerAAC::Depacketize(std::shared_ptr<DataBuffer> dataBuffer)
+void RtpDepacketizerAAC::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer)
 {
-    LOGD("size: %zu", dataBuffer->Size());
-    dataBuffer->HexDump(32);
+    RtpHeader *rtp = (RtpHeader *)dataBuffer->Data();
+    // LOGW("seq: %d, header length: %d, size: %zu", rtp->GetSeqNumber(), rtp->GetHeaderLength(), dataBuffer->Size());
 
     auto frame = std::make_shared<Frame>();
     frame->format = FRAME_FORMAT_AAC;
@@ -65,7 +65,9 @@ void RtpDepacketizerAAC::Depacketize(std::shared_ptr<DataBuffer> dataBuffer)
     header.SetChannel(channels_).SetSamplingFrequency(sampleRate_).SetLength(adtsLength + 7);
     frame->Assign(&header, sizeof(header));
     frame->Append(dataBuffer->Data() + 12 + 4, adtsLength);
-    depacketizeCallback_(frame);
+    if (depacketizeCallback_) {
+        depacketizeCallback_(frame);
+    }
 }
 
 void RtpDepacketizerAAC::SetExtraData(void *extra)

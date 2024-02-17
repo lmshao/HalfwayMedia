@@ -14,7 +14,7 @@ public:
 
 class RtpDepacketizerAAC : public RtpDepacketizer {
 public:
-    void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) override;
+    void DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer) override;
     void SetExtraData(void *extra) override;
 
 private:

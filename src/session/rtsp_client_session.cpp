@@ -2,13 +2,13 @@
 // Copyright © 2024 SHAO Liming <lmshao@163.com>. All rights reserved.
 //
 
+#include "rtsp_client_session.h"
 #include "../agent/media_file/raw_file_sink.h"
 #include "../agent/rtsp_stream/rtsp_source.h"
 #include "../common/log.h"
 #include "../common/utils.h"
-#include "rtsp_recorder_session.h"
 
-bool RtspRecoderSession::Init()
+bool RtspClientSession::Init()
 {
     if (url_.empty()) {
         LOGE("url is empty");
@@ -33,19 +33,19 @@ bool RtspRecoderSession::Init()
         return false;
     }
 
-    sink_ = RawFileSink::Create(filename_ + ".aac");
+    sink_ = RawFileSink::Create(filename_ + ".h264");
 
     if (!sink_->Init()) {
         LOGE("source init failed");
         return false;
     }
 
-    // source_->AddVideoSink(sink_);
-    source_->AddAudioSink(sink_);
+    source_->AddVideoSink(sink_);
+    // source_->AddAudioSink(sink_);
     return true;
 }
 
-bool RtspRecoderSession::Start()
+bool RtspClientSession::Start()
 {
     if (!source_->Start()) {
         LOGD("source started failed");

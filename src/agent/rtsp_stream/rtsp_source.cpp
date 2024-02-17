@@ -3,7 +3,6 @@
 #include "../../common/utils.h"
 #include "../../protocol/rtsp/rtsp_request.h"
 #include <cstdint>
-#include <cstdio>
 #include <functional>
 #include <memory>
 #include <string>
@@ -11,6 +10,12 @@
 
 const char *RTSP_USER_AGENT = "HalfwatMedia/2.0";
 const char *MIME_SDP = "application/sdp";
+
+RtspSource::~RtspSource()
+{
+    LOGD("destructor");
+    Stop();
+}
 
 bool RtspSource::Init()
 {
@@ -51,6 +56,29 @@ bool RtspSource::Start()
     return MediaSource::Start();
 }
 
+void RtspSource::Stop()
+{
+    if (videoRtpServer_) {
+        videoRtpServer_->Stop();
+        videoRtpServer_.reset();
+    }
+
+    if (videoRtcpServer_) {
+        videoRtcpServer_->Stop();
+        videoRtcpServer_.reset();
+    }
+
+    if (audioRtpServer_) {
+        audioRtpServer_->Stop();
+        audioRtpServer_.reset();
+    }
+
+    if (audioRtcpServer_) {
+        audioRtcpServer_->Stop();
+        audioRtcpServer_.reset();
+    }
+}
+
 void RtspSource::ReceiveDataLoop()
 {
     LOGD("enter");
@@ -83,11 +111,13 @@ void RtspSource::OnReceive(std::shared_ptr<DataBuffer> buffer)
 void RtspSource::OnClose()
 {
     LOGW("Server close connection");
+    Stop();
 }
 
 void RtspSource::OnError(const std::string &errorInfo)
 {
     LOGW("Server error %s", errorInfo.c_str());
+    Stop();
 }
 
 void RtspSource::OnError(std::shared_ptr<Session> clientSession, const std::string &errorInfo)
@@ -208,43 +238,11 @@ void RtspSource::HandleResponseDescribe(RtspResponse &response)
     audioTrack_ = sdp_.GetAudioTrack();
 
     if (videoTrack_) {
-        int pt, clockCycle;
-        std::string format;
-        if (videoTrack_->GetVideoConfig(pt, format, clockCycle)) {
-            if (format == "H264") {
-                videoDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_H264);
-                if (!videoDepacketizer_) {
-                    LOGE("Create RtpDepacketizer for aac failed");
-                    return;
-                }
-
-                videoDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
-            } else {
-                LOGE("Unsupported Video format %s", format.c_str());
-                return;
-            }
-        }
+        InitVideoDepacketizer();
     }
 
     if (audioTrack_) {
-        int pt, samplingRate, channels;
-        std::string format;
-        if (audioTrack_->GetAudioConfig(pt, format, samplingRate, channels)) {
-            if (format == "MPEG4-GENERIC") {
-                audioDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_AAC);
-                if (!audioDepacketizer_) {
-                    LOGE("Create RtpDepacketizer for aac failed");
-                    return;
-                }
-
-                AudioFrameInfo info{(uint8_t)channels, 1024, (uint32_t)samplingRate};
-                audioDepacketizer_->SetExtraData(&info);
-                audioDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
-            } else {
-                LOGE("Unsupported Audio format %s", format.c_str());
-                return;
-            }
-        }
+        InitAudioDepacketizer();
     }
 
     if (videoTrack_) {
@@ -260,7 +258,12 @@ bool RtspSource::SendRequestSetup(MediaType type)
 {
     RtspRequestSetup request;
     if (type == VIDEO) {
-        request.SetUrl(baseUrl_ + "" + videoTrack_->GetTrackId());
+        std::string videoTrackUrl = videoTrack_->GetTrackId();
+        if (videoTrackUrl.find(baseUrl_) != std::string::npos) {
+            request.SetUrl(videoTrackUrl);
+        } else {
+            request.SetUrl(baseUrl_ + "" + videoTrackUrl);
+        }
 
         uint16_t videoRtpPort = UdpServer::GetIdlePortPair();
         videoRtpServer_ = UdpServer::Create(videoRtpPort);
@@ -272,7 +275,12 @@ bool RtspSource::SendRequestSetup(MediaType type)
         setupType_ = VIDEO;
 
     } else if (type == AUDIO) {
-        request.SetUrl(baseUrl_ + "" + audioTrack_->GetTrackId());
+        std::string audioTrackUrl = audioTrack_->GetTrackId();
+        if (audioTrackUrl.find(baseUrl_) != std::string::npos) {
+            request.SetUrl(audioTrackUrl);
+        } else {
+            request.SetUrl(baseUrl_ + "" + audioTrackUrl);
+        }
 
         uint16_t audioRtpPort = UdpServer::GetIdlePortPair();
         audioRtpServer_ = UdpServer::Create(audioRtpPort);
@@ -394,4 +402,81 @@ bool RtspSource::StartRtpServers()
     }
 
     return true;
+}
+
+void RtspSource::InitVideoDepacketizer()
+{
+    if (!videoTrack_) {
+        return;
+    }
+
+    auto reso = videoTrack_->GetVideoSize();
+    videoWidth_ = reso.first;
+    videoWidth_ = reso.second;
+
+    auto sps = videoTrack_->GetVideoSps();
+    auto pps = videoTrack_->GetVideoPps();
+    if (sps) {
+        sps_ = std::make_shared<Frame>();
+        sps_->Assign(sps->Data(), sps->Size());
+        sps_->format = FRAME_FORMAT_H264;
+    }
+
+    if (pps) {
+        pps_ = std::make_shared<Frame>();
+        pps_->Assign(pps->Data(), pps->Size());
+        pps_->format = FRAME_FORMAT_H264;
+    }
+
+    int pt, clockCycle;
+    std::string format;
+    if (videoTrack_->GetVideoConfig(pt, format, clockCycle)) {
+        if (format == "H264" || format == "h264") {
+            videoDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_H264);
+            if (!videoDepacketizer_) {
+                LOGE("Create RtpDepacketizer for aac failed");
+                return;
+            }
+
+            videoDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) {
+                if (frame->videoInfo.isKeyFrame && sps_ && pps_) {
+                    DeliverFrame(sps_);
+                    DeliverFrame(pps_);
+                }
+
+                frame->videoInfo.width = videoWidth_;
+                frame->videoInfo.height = videoHeight_;
+                DeliverFrame(frame);
+            });
+        } else {
+            LOGE("Unsupported Video format %s", format.c_str());
+            return;
+        }
+    }
+}
+
+void RtspSource::InitAudioDepacketizer()
+{
+    if (!audioTrack_) {
+        return;
+    }
+
+    int pt, samplingRate, channels;
+    std::string format;
+    if (audioTrack_->GetAudioConfig(pt, format, samplingRate, channels)) {
+        if (format == "MPEG4-GENERIC" || format == "mpeg4-generic") {
+            audioDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_AAC);
+            if (!audioDepacketizer_) {
+                LOGE("Create RtpDepacketizer for aac failed");
+                return;
+            }
+
+            AudioFrameInfo info{(uint8_t)channels, 1024, (uint32_t)samplingRate};
+            audioDepacketizer_->SetExtraData(&info);
+            audioDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
+        } else {
+            LOGE("Unsupported Audio format %s", format.c_str());
+            return;
+        }
+    }
 }

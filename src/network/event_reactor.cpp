@@ -21,6 +21,7 @@ EventReactor::EventReactor()
 
 EventReactor::~EventReactor()
 {
+    LOGD("enter");
     running_ = false;
     if (epollThread_ && epollThread_->joinable()) {
         epollThread_->join();
@@ -51,6 +52,7 @@ void EventReactor::AddListeningFd(int fd, std::function<void(int)> callback)
 
 void EventReactor::RemoveListeningFd(int fd)
 {
+    LOGD("remove fd(%d)", fd);
     std::unique_lock<std::mutex> lock(mutex_);
     if (fds_.find(fd) == fds_.end()) {
         return;

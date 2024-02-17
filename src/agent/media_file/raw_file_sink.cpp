@@ -14,6 +14,7 @@ void RawFileSink::OnFrame(const std::shared_ptr<Frame> &frame)
     fflush(stdout);
     if (fileWriter_) {
         fileWriter_->Write(frame->Data(), frame->Size());
+        // fileWriter_->Flush();
     }
 }
 

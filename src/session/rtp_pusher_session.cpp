@@ -6,7 +6,7 @@
 #include "../agent/media_file/media_file_source.h"
 #include "../common/log.h"
 #include "../common/utils.h"
-#include "agent/rtp_stream/rtp_sink.h"
+#include "../agent/rtp_stream/rtp_sink.h"
 
 bool RtpPusherSession::Init()
 {

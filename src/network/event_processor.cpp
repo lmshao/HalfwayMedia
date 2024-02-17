@@ -14,7 +14,6 @@
 #include <string>
 #include <sys/epoll.h>
 #include <sys/socket.h>
-#include <thread>
 #include <unistd.h>
 #include <unordered_set>
 

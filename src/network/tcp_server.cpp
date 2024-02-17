@@ -144,52 +144,62 @@ void TcpServer::HandleReceive(int fd)
     static char buffer[RECV_BUFFER_MAX_SIZE] = {};
     memset(buffer, 0, RECV_BUFFER_MAX_SIZE);
 
-    ssize_t nbytes = recv(fd, buffer, sizeof(buffer), 0);
-    if (nbytes < 0) {
-        std::string info = strerror(errno);
-        LOGE("recv error: %s", info.c_str());
-        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
-        close(fd);
-
-        if (!listener_.expired()) {
-            callbackThreads_->AddTask([=](void *) {
-                auto listener = listener_.lock();
-                if (listener) {
-                    listener->OnError(sessions_[fd], info);
-                    sessions_.erase(fd);
-                } else {
-                    LOGE("not found listener!");
-                }
-            });
+    while (true) {
+        ssize_t nbytes = recv(fd, buffer, sizeof(buffer), 0);
+        if (nbytes > 0) {
+            if (!listener_.expired()) {
+                auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
+                dataBuffer->Assign(buffer, nbytes);
+                callbackThreads_->AddTask([=](void *) {
+                    auto listener = listener_.lock();
+                    if (listener) {
+                        listener->OnReceive(sessions_[fd], dataBuffer);
+                    }
+                });
+            }
+            continue;
         }
 
-    } else if (nbytes == 0) {
-        LOGW("Disconnect fd[%d]", fd);
-        EventProcessor::GetInstance()->RemoveConnectionFd(fd);
-        close(fd);
+        if (nbytes == 0) {
+            LOGW("Disconnect fd[%d]", fd);
+            EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+            close(fd);
 
-        if (!listener_.expired()) {
-            callbackThreads_->AddTask([=](void *) {
-                auto listener = listener_.lock();
-                if (listener) {
-                    listener->OnClose(sessions_[fd]);
-                    sessions_.erase(fd);
-                } else {
-                    LOGE("not found listener!");
-                }
-            });
+            if (!listener_.expired()) {
+                callbackThreads_->AddTask([=](void *) {
+                    auto listener = listener_.lock();
+                    if (listener) {
+                        listener->OnClose(sessions_[fd]);
+                        sessions_.erase(fd);
+                    } else {
+                        LOGE("not found listener!");
+                    }
+                });
+            }
+
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+
+            std::string info = strerror(errno);
+            LOGE("recv error: %s", info.c_str());
+            EventProcessor::GetInstance()->RemoveConnectionFd(fd);
+            close(fd);
+
+            if (!listener_.expired()) {
+                callbackThreads_->AddTask([=](void *) {
+                    auto listener = listener_.lock();
+                    if (listener) {
+                        listener->OnError(sessions_[fd], info);
+                        sessions_.erase(fd);
+                    } else {
+                        LOGE("not found listener!");
+                    }
+                });
+            }
         }
 
-    } else {
-        if (!listener_.expired()) {
-            auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
-            dataBuffer->Assign(buffer, nbytes);
-            callbackThreads_->AddTask([=](void *) {
-                auto listener = listener_.lock();
-                if (listener) {
-                    listener->OnReceive(sessions_[fd], dataBuffer);
-                }
-            });
-        }
+        break;
     }
 }

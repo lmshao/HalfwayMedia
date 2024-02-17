@@ -23,7 +23,7 @@
 
 class RtspSource : public MediaSource, public IClientListener, public IServerListener {
 public:
-    ~RtspSource() = default;
+    ~RtspSource();
 
     template <typename... Args>
     static std::shared_ptr<RtspSource> Create(std::string url)
@@ -34,6 +34,8 @@ public:
     // impl MediaSource
     bool Init() override;
     bool Start() override;
+
+    void Stop() override;
 
     // impl IClientListener of TCP Client
     void OnReceive(std::shared_ptr<DataBuffer> buffer) override;
@@ -67,6 +69,9 @@ private:
 
     bool StartRtpServers();
 
+    void InitVideoDepacketizer();
+    void InitAudioDepacketizer();
+
 private:
     int cseq_ = 0;
     int timeout_ = 0;
@@ -95,6 +100,10 @@ private:
 
     std::shared_ptr<MediaDescription> videoTrack_;
     std::shared_ptr<MediaDescription> audioTrack_;
+
+    std::shared_ptr<Frame> sps_;
+    std::shared_ptr<Frame> pps_;
+    int videoWidth_, videoHeight_;
 };
 
 #endif // HALFWAY_MEDIA_RTSP_SOURCE_H

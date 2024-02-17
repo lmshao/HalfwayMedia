@@ -5,7 +5,9 @@
 #ifndef HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H
 #define HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H
 
+#include "../../common/data_buffer.h"
 #include "../../common/frame.h"
+#include "rtp_sorter.h"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -145,16 +147,22 @@ public:
 
     static std::shared_ptr<RtpDepacketizer> Create(FrameFormat format);
 
-    virtual void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) = 0;
+    void Depacketize(std::shared_ptr<DataBuffer> dataBuffer) { sorter_.Input(dataBuffer); }
+
     virtual void SetExtraData(void *extra) {}
 
     void SetCallback(const std::function<void(std::shared_ptr<Frame>)> callback) { depacketizeCallback_ = callback; }
 
 protected:
-    RtpDepacketizer() = default;
+    RtpDepacketizer();
+
+    virtual void DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer) = 0;
 
 protected:
     std::function<void(std::shared_ptr<Frame>)> depacketizeCallback_;
+
+private:
+    RtpSorter sorter_;
 };
 
 #endif // HALFWAY_MEDIA_PROTOCOL_RTP_PACKET_H

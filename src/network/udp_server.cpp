@@ -8,6 +8,7 @@
 #include "event_processor.h"
 #include <arpa/inet.h>
 #include <cstdint>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -19,12 +20,13 @@ static uint16_t idlePort_ = UDP_SERVER_DEFAULT_PORT_START;
 
 UdpServer::~UdpServer()
 {
+    LOGD("destructor");
     Stop();
 }
 
 bool UdpServer::Init()
 {
-    socket_ = socket(AF_INET, SOCK_DGRAM, 0);
+    socket_ = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
     if (socket_ == INVALID_SOCKET) {
         LOGE("socket error: %s", strerror(errno));
         return false;
@@ -36,6 +38,12 @@ bool UdpServer::Init()
         LOGE("setsockopt error: %s", strerror(errno));
         return false;
     }
+
+    // int bufferSize = 819200;
+    // if (setsockopt(socket_, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize)) < 0) {
+    //     LOGE("setsockopt error: %s", strerror(errno));
+    //     return false;
+    // }
 
     memset(&serverAddr_, 0, sizeof(serverAddr_));
     serverAddr_.sin_family = AF_INET;
@@ -107,13 +115,31 @@ void UdpServer::HandleReceive(int fd)
     struct sockaddr_in clientAddr;
     socklen_t addrLen = sizeof(clientAddr);
 
-    ssize_t nbytes = recvfrom(socket_, buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddr, &addrLen);
+    while (true) {
+        ssize_t nbytes = recvfrom(socket_, buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddr, &addrLen);
+        std::string host = inet_ntoa(clientAddr.sin_addr);
+        uint16_t port = ntohs(clientAddr.sin_port);
+        LOGD("recvfrom %s:%d", host.c_str(), port);
 
-    std::string host = inet_ntoa(clientAddr.sin_addr);
-    uint16_t port = ntohs(clientAddr.sin_port);
-    LOGD("recvfrom %s:%d", host.c_str(), port);
+        if (nbytes > 0) {
+            if (!listener_.expired()) {
+                auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
+                dataBuffer->Assign(buffer, nbytes);
+                callbackThreads_->AddTask([=](void *) {
+                    auto listener = listener_.lock();
+                    if (listener) {
+                        listener->OnReceive(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()),
+                                            dataBuffer);
+                    }
+                });
+            }
+            continue;
+        }
 
-    if (nbytes < 0) {
+        if (nbytes == 0 || errno == EAGAIN || errno == EWOULDBLOCK) {
+            break;
+        }
+
         std::string info = strerror(errno);
         LOGE("recvfrom() failed: %s", info.c_str());
         if (!listener_.expired()) {
@@ -127,17 +153,7 @@ void UdpServer::HandleReceive(int fd)
                 }
             });
         }
-    } else {
-        if (!listener_.expired()) {
-            auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
-            dataBuffer->Assign(buffer, nbytes);
-            callbackThreads_->AddTask([=](void *) {
-                auto listener = listener_.lock();
-                if (listener) {
-                    listener->OnReceive(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()), dataBuffer);
-                }
-            });
-        }
+        break;
     }
 }
 

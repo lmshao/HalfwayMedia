@@ -9,9 +9,9 @@
 #include "../agent/base/media_source.h"
 #include <string>
 
-class RtspRecoderSession {
+class RtspClientSession {
 public:
-    RtspRecoderSession() = default;
+    RtspClientSession() = default;
     void SetSourceUrl(std::string url) { url_ = url; }
     void SetRecorderFileName(std::string filename) { filename_ = filename; }
 

@@ -52,3 +52,8 @@ std::shared_ptr<RtpDepacketizer> RtpDepacketizer::Create(FrameFormat format)
 
     return depacketizer;
 }
+
+RtpDepacketizer::RtpDepacketizer()
+{
+    sorter_.SetCallback([this](std::shared_ptr<DataBuffer> packet) { DepacketizeInner(packet); });
+}
