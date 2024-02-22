@@ -331,7 +331,7 @@ void RtpDepacketizerH264::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffe
                 LOGW("Single nalu %d", type);
                 HandleSinglePacket(dataBuffer);
             } else {
-                LOGE("unsupported type %d", type);
+                LOGE("Undefined type %d", type);
             }
             break;
     }
@@ -432,7 +432,7 @@ void RtpDepacketizerH264::PopCache()
     frame->format = FRAME_FORMAT_H264;
     frame->videoInfo.isKeyFrame = (fuHeader->type == NALU_IDR);
 
-    uint8_t naluHeader = ((data[0] & 0x60) | (data[1] & 0x1f));
+    uint8_t naluHeader = ((data[0] & 0xe0) | (data[1] & 0x1f));
     frame->Assign(gStartCode, sizeof(gStartCode));
     frame->Append(naluHeader);
     frame->Append(data + 2, startRtpPacket->Size() - rtp->GetHeaderLength() - 2);
