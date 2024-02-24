@@ -5,10 +5,8 @@
 #ifndef HALFWAY_MEDIA_MEDIA_FRAME_PIPELINE_H
 #define HALFWAY_MEDIA_MEDIA_FRAME_PIPELINE_H
 
-#include "../../common/frame.h"
-#include <list>
+#include "common/frame.h"
 #include <shared_mutex>
-#include <string>
 #include <unordered_map>
 
 class FrameSink;
@@ -25,10 +23,13 @@ public:
 
     uint64_t Id() { return reinterpret_cast<uint64_t>(this); }
 
+    virtual void OnNotify(void *userdata) = 0;
+
 protected:
     void DeliverFrame(const std::shared_ptr<Frame> &frame);
+    bool NotifySink(void *userdata);
 
-private:
+protected:
     std::shared_mutex audioSinkMutex_;
     std::shared_mutex videoSinkMutex_;
     std::unordered_map<uint64_t, std::weak_ptr<FrameSink>> audioSinks_;
@@ -43,6 +44,7 @@ public:
     uint64_t Id() { return reinterpret_cast<uint64_t>(this); }
 
     virtual void OnFrame(const std::shared_ptr<Frame> &frame) = 0;
+    virtual bool OnNotify(void *userdata) = 0;
 
     void SetAudioSource(const std::shared_ptr<FrameSource> &source);
     void UnsetAudioSource();
@@ -52,6 +54,9 @@ public:
 
     bool HasAudioSource();
     bool HasVideoSource();
+
+protected:
+    void NotifySource(void *userdata);
 
 private:
     std::shared_mutex audioSrcMutex_;

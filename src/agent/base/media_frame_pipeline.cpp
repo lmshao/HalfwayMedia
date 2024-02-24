@@ -3,8 +3,7 @@
 //
 
 #include "media_frame_pipeline.h"
-#include "../../common/log.h"
-#include <algorithm>
+#include "common/log.h"
 #include <mutex>
 
 FrameSource::~FrameSource()
@@ -88,6 +87,28 @@ void FrameSource::DeliverFrame(const std::shared_ptr<Frame> &frame)
         LOGE("Unknown frame Type");
     }
 }
+
+bool FrameSource::NotifySink(void *userdata)
+{
+    bool result = true;
+    std::shared_lock<std::shared_mutex> lock(audioSinkMutex_);
+    for (auto &item : audioSinks_) {
+        auto sink = item.second.lock();
+        if (sink) {
+            result = sink->OnNotify(userdata) && result;
+        }
+    }
+
+    for (auto &item : videoSinks_) {
+        auto sink = item.second.lock();
+        if (sink) {
+            result = sink->OnNotify(userdata) && result;
+        }
+    }
+
+    return result;
+}
+
 void FrameSink::SetAudioSource(const std::shared_ptr<FrameSource> &source)
 {
     LOGD("sink(%lu) set audio source(%lu).", Id(), source->Id());
@@ -123,4 +144,20 @@ bool FrameSink::HasAudioSource()
 bool FrameSink::HasVideoSource()
 {
     return videoSrc_.expired();
+}
+
+void FrameSink::NotifySource(void *userdata)
+{
+    bool result = true;
+    std::shared_lock<std::shared_mutex> lock(audioSrcMutex_);
+
+    auto audioSrc = audioSrc_.lock();
+    if (audioSrc) {
+        audioSrc->OnNotify(userdata);
+    }
+
+    auto videoSrc = videoSrc_.lock();
+    if (videoSrc) {
+        videoSrc->OnNotify(userdata);
+    }
 }

@@ -4,6 +4,7 @@
 
 #include "event_reactor.h"
 #include "../common/log.h"
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <sys/epoll.h>

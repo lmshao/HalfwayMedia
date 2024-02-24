@@ -5,7 +5,8 @@
 #ifndef HALFWAY_MEDIA_MEDIA_SOURCE_H
 #define HALFWAY_MEDIA_MEDIA_SOURCE_H
 
-#include "../base/media_frame_pipeline.h"
+#include "event_definition.h"
+#include "media_frame_pipeline.h"
 #include <thread>
 
 class MediaSource : public FrameSource {
@@ -17,7 +18,13 @@ public:
     virtual bool Start();
     virtual void Stop() { running_ = false; }
 
-protected:
+    virtual bool OnEvent(AgentEvent event) { return true; }
+
+    bool NotifySink(AgentEvent event);
+
+private:
+    virtual void OnNotify(void *userdata) override;
+
     virtual void ReceiveDataLoop() = 0;
 
 protected:

@@ -5,7 +5,6 @@
 #ifndef HALFWAY_MEDIA_LOG_H
 #define HALFWAY_MEDIA_LOG_H
 
-#include <cstring>
 #include <string>
 
 std::string Time();

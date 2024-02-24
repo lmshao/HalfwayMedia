@@ -3,6 +3,8 @@
 //
 
 #include "media_source.h"
+#include "common/log.h"
+#include "event_definition.h"
 
 bool MediaSource::Init()
 {
@@ -22,4 +24,25 @@ MediaSource::~MediaSource()
         workerThread_->join();
     }
     workerThread_.reset();
+}
+
+bool MediaSource::NotifySink(AgentEvent event)
+{
+    return FrameSource::NotifySink(&event);
+}
+
+void MediaSource::OnNotify(void *userdata)
+{
+    AgentEvent *event = (AgentEvent *)userdata;
+
+    switch (event->type) {
+        case EVENT_SOURCE_ERROR:
+            if (event->info) {
+                LOGE("OnError: %s", event->info->info.c_str());
+            }
+            break;
+        default:
+            LOGW("unsupported event : %d", (int)event->type);
+            break;
+    }
 }

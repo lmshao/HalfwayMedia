@@ -7,6 +7,7 @@
 #include "../agent/rtsp_stream/rtsp_source.h"
 #include "../common/log.h"
 #include "../common/utils.h"
+#include "agent/base/event_definition.h"
 
 bool RtspClientSession::Init()
 {
@@ -34,8 +35,7 @@ bool RtspClientSession::Init()
     }
 
     sink_ = RawFileSink::Create(filename_ + ".h264");
-
-    if (!sink_->Init()) {
+    if (!sink_->Notify(AgentEvent{EVENT_SINK_INIT})) {
         LOGE("source init failed");
         return false;
     }

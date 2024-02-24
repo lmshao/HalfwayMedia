@@ -3,6 +3,9 @@
 //
 
 #include "media_sink.h"
+#include "agent/base/media_frame_pipeline.h"
+#include "common/log.h"
+#include "event_definition.h"
 #include <memory>
 
 void MediaSink::SetMediaInfo(VideoFrameInfo *videoInfo, AudioFrameInfo *audioInfo)
@@ -25,4 +28,42 @@ void MediaSink::SetMediaInfo(VideoFrameInfo *videoInfo, AudioFrameInfo *audioInf
         audioInfo_->nbSamples = audioInfo->nbSamples;
         audioInfo_->sampleRate = audioInfo->sampleRate;
     }
+}
+
+void MediaSink::NotifySource(AgentEvent event)
+{
+    FrameSink::NotifySource(&event);
+}
+
+bool MediaSink::Notify(AgentEvent event)
+{
+    return OnNotify(&event);
+}
+
+bool MediaSink::OnNotify(void *userdata)
+{
+    AgentEvent *event = (AgentEvent *)userdata;
+
+    switch (event->type) {
+        case EVENT_SINK_SET_PARAMETERS:
+            if (event->params) {
+                SetMediaInfo(event->params->video, event->params->audio);
+            }
+            break;
+        case EVENT_SINK_INIT:
+            return Init();
+        case EVENT_SINK_STOP:
+            return Stop();
+        case EVENT_SINK_ERROR:
+            if (event->info) {
+                LOGE("OnError: %s", event->info->info.c_str());
+            }
+            return Stop();
+
+        default:
+            LOGW("unsupported event : %d", (int)event->type);
+            break;
+    }
+
+    return true;
 }

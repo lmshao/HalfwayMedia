@@ -5,9 +5,8 @@
 #ifndef HALFWAY_MEDIA_MEDIA_FILE_SINK_H
 #define HALFWAY_MEDIA_MEDIA_FILE_SINK_H
 
-#include "../base/media_sink.h"
+#include "agent/base/media_sink.h"
 #include <memory>
-#include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -16,7 +15,7 @@ extern "C" {
 
 class MediaFileSink : public MediaSink {
 public:
-    ~MediaFileSink() override ;
+    ~MediaFileSink() override;
 
     template <typename... Args>
     static std::shared_ptr<MediaFileSink> Create(std::string file)
@@ -27,11 +26,12 @@ public:
     // impl FrameSink
     void OnFrame(const std::shared_ptr<Frame> &frame) override;
 
-    // impl MediaSink
-    bool Init() override;
-
 private:
     MediaFileSink(std::string fileName) : fileName_(std::move(fileName)) {}
+
+    // impl MediaSink
+    bool Init() override;
+    bool Stop() override;
 
 private:
     std::string fileName_;

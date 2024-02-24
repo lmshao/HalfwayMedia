@@ -1,6 +1,6 @@
 #include "media_file_sink.h"
-#include "../../common/log.h"
-#include "../../common/utils.h"
+#include "common/log.h"
+#include "common/utils.h"
 
 extern "C" {
 #include <libavcodec/packet.h>
@@ -9,14 +9,7 @@ extern "C" {
 
 MediaFileSink::~MediaFileSink()
 {
-    if (avFmtCtx_) {
-        av_write_trailer(avFmtCtx_);
-        avformat_close_input(&avFmtCtx_);
-    }
-
-    if (avPacket_) {
-        av_packet_free(&avPacket_);
-    }
+    Stop();
 }
 
 void MediaFileSink::OnFrame(const std::shared_ptr<Frame> &frame)
@@ -129,6 +122,20 @@ bool MediaFileSink::Init()
     if (!avPacket_) {
         LOGE("Failed to alloc av packet");
         return false;
+    }
+
+    return true;
+}
+
+bool MediaFileSink::Stop()
+{
+    if (avFmtCtx_) {
+        av_write_trailer(avFmtCtx_);
+        avformat_close_input(&avFmtCtx_);
+    }
+
+    if (avPacket_) {
+        av_packet_free(&avPacket_);
     }
 
     return true;

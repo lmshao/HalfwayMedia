@@ -4,9 +4,10 @@
 
 #include "rtp_pusher_session.h"
 #include "../agent/media_file/media_file_source.h"
+#include "../agent/rtp_stream/rtp_sink.h"
 #include "../common/log.h"
 #include "../common/utils.h"
-#include "../agent/rtp_stream/rtp_sink.h"
+#include "agent/base/event_definition.h"
 
 bool RtpPusherSession::Init()
 {
@@ -38,7 +39,7 @@ bool RtpPusherSession::Init()
 
     sink_ = RtpSink::Create(rtpIp_, videoPort_, audioPort_);
 
-    if (!sink_->Init()) {
+    if (!sink_->Notify(AgentEvent{EVENT_SINK_INIT})) {
         LOGE("source init failed");
         return false;
     }
