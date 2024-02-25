@@ -119,7 +119,7 @@ void UdpServer::HandleReceive(int fd)
         ssize_t nbytes = recvfrom(socket_, buffer, sizeof(buffer), 0, (struct sockaddr *)&clientAddr, &addrLen);
         std::string host = inet_ntoa(clientAddr.sin_addr);
         uint16_t port = ntohs(clientAddr.sin_port);
-        LOGD("recvfrom %s:%d", host.c_str(), port);
+        // LOGD("recvfrom %s:%d", host.c_str(), port);
 
         if (nbytes > 0) {
             if (!listener_.expired()) {

@@ -3,8 +3,8 @@
 //
 
 #include "rtp_packet_h264.h"
-#include "../../common/log.h"
-#include "../../common/utils.h"
+#include "common/log.h"
+#include "common/utils.h"
 #include "rtp_packet.h"
 #include <cstddef>
 #include <cstdint>
@@ -301,7 +301,7 @@ void RtpPacketizerH264::MakeFuAPacket(const uint8_t *data, size_t length, int64_
 
 void RtpDepacketizerH264::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer)
 {
-    LOGD("size: %zu", dataBuffer->Size());
+    // LOGD("size: %zu", dataBuffer->Size());
     auto p = dataBuffer->Data() + 12; // skip RTP Header
 
     uint8_t type = p[0] & 0x1f;
@@ -320,7 +320,7 @@ void RtpDepacketizerH264::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffe
             LOGE("unsupported type MTAP24 nal");
             break;
         case NALU_FU_A:
-            LOGW("FU-A nal");
+            // LOGD("FU-A nal");
             HandleFuAPacket(dataBuffer);
             break;
         case NALU_FU_B:
@@ -328,7 +328,7 @@ void RtpDepacketizerH264::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffe
             break;
         default:
             if (type < 24) {
-                LOGW("Single nalu %d", type);
+                // LOGD("Single nalu %d", type);
                 HandleSinglePacket(dataBuffer);
             } else {
                 LOGE("Undefined type %d", type);
@@ -355,6 +355,7 @@ void RtpDepacketizerH264::HandleSinglePacket(std::shared_ptr<DataBuffer> dataBuf
 
     frame->videoInfo.isKeyFrame = (NALU_TYPE(data[0]) == NALU_IDR);
     frame->format = FRAME_FORMAT_H264;
+    frame->timestamp = rtp->GetTimestamp();
 
     if (depacketizeCallback_) {
         depacketizeCallback_(frame);
@@ -364,7 +365,7 @@ void RtpDepacketizerH264::HandleSinglePacket(std::shared_ptr<DataBuffer> dataBuf
 void RtpDepacketizerH264::HandleFuAPacket(std::shared_ptr<DataBuffer> dataBuffer)
 {
     RtpHeader *rtp = (RtpHeader *)dataBuffer->Data();
-    LOGE("seq: %d, header length: %d", rtp->GetSeqNumber(), rtp->GetHeaderLength());
+    LOGD("seq: %d, header length: %d", rtp->GetSeqNumber(), rtp->GetHeaderLength());
 
     uint16_t seq = rtp->GetSeqNumber();
     uint32_t ts = rtp->GetTimestamp();
@@ -381,7 +382,7 @@ void RtpDepacketizerH264::HandleFuAPacket(std::shared_ptr<DataBuffer> dataBuffer
     std::lock_guard<std::mutex> lock(mutex_);
     if (lastTs_ != ts) {
         // not a nalu
-        LOGW("lastTs != ts");
+        LOGW("lastTs != ts, this is new packet");
         PopCache();
         cache_.emplace(dataBuffer);
         cacheDataLength_ = 1 + length - 2; // - sizeof(fuIndicator) - sizeof(fuHeader) + nalu type field size
@@ -431,6 +432,7 @@ void RtpDepacketizerH264::PopCache()
     frame->SetCapacity(cacheDataLength_ + sizeof(gStartCode));
     frame->format = FRAME_FORMAT_H264;
     frame->videoInfo.isKeyFrame = (fuHeader->type == NALU_IDR);
+    frame->timestamp = rtp->GetTimestamp();
 
     uint8_t naluHeader = ((data[0] & 0xe0) | (data[1] & 0x1f));
     frame->Assign(gStartCode, sizeof(gStartCode));

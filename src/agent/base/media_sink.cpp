@@ -14,6 +14,8 @@ void MediaSink::SetMediaInfo(VideoFrameInfo *videoInfo, AudioFrameInfo *audioInf
         if (!videoInfo_) {
             videoInfo_ = std::make_unique<VideoFrameInfo>();
         }
+        LOGW("%d x %d", videoInfo->width, videoInfo->height);
+
         videoInfo_->framerate = videoInfo->framerate;
         videoInfo_->width = videoInfo->width;
         videoInfo_->height = videoInfo->height;
@@ -24,6 +26,8 @@ void MediaSink::SetMediaInfo(VideoFrameInfo *videoInfo, AudioFrameInfo *audioInf
         if (!audioInfo_) {
             audioInfo_ = std::make_unique<AudioFrameInfo>();
         }
+        LOGW("audio %d - %d - %d", audioInfo->sampleRate, audioInfo->channels, audioInfo->nbSamples);
+
         audioInfo_->channels = audioInfo->channels;
         audioInfo_->nbSamples = audioInfo->nbSamples;
         audioInfo_->sampleRate = audioInfo->sampleRate;
@@ -59,7 +63,6 @@ bool MediaSink::OnNotify(void *userdata)
                 LOGE("OnError: %s", event->info->info.c_str());
             }
             return Stop();
-
         default:
             LOGW("unsupported event : %d", (int)event->type);
             break;

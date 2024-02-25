@@ -5,8 +5,8 @@
 #ifndef HALFWAY_MEDIA_MEDIA_FILE_SOURCE_H
 #define HALFWAY_MEDIA_MEDIA_FILE_SOURCE_H
 
-#include "../../common/frame.h"
-#include "../base/media_source.h"
+#include "agent/base/media_source.h"
+#include "common/frame.h"
 #include <memory>
 #include <string>
 #include <utility>
@@ -39,7 +39,7 @@ private:
     std::string fileName_;
 
     AVFormatContext *avFmtCtx_ = nullptr;
-    AVPacket *avPacket_        = nullptr;
+    AVPacket *avPacket_ = nullptr;
 
     AVRational msTimeBase_;
     AVRational audioTimeBase_;

@@ -3,9 +3,9 @@
 //
 
 #include "media_file_source.h"
-#include "../../common/frame.h"
-#include "../../common/log.h"
-#include "../../common/utils.h"
+#include "common/frame.h"
+#include "common/log.h"
+#include "common/utils.h"
 #include <memory>
 
 extern "C" {

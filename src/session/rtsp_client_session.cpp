@@ -3,18 +3,14 @@
 //
 
 #include "rtsp_client_session.h"
-#include "../agent/media_file/raw_file_sink.h"
-#include "../agent/rtsp_stream/rtsp_source.h"
-#include "../common/log.h"
-#include "../common/utils.h"
 #include "agent/base/event_definition.h"
+#include "agent/media_file/media_file_sink.h"
+#include "agent/rtsp_stream/rtsp_source.h"
+#include "common/log.h"
+#include "common/utils.h"
 
 bool RtspClientSession::Init()
 {
-    if (url_.empty()) {
-        LOGE("url is empty");
-        return false;
-    }
 
     if (url_.empty() || filename_.empty()) {
         LOGE("url(%s) or filename(%s) is invalid", url_.c_str(), filename_.c_str());
@@ -34,14 +30,10 @@ bool RtspClientSession::Init()
         return false;
     }
 
-    sink_ = RawFileSink::Create(filename_ + ".h264");
-    if (!sink_->Notify(AgentEvent{EVENT_SINK_INIT})) {
-        LOGE("source init failed");
-        return false;
-    }
+    sink_ = MediaFileSink::Create(filename_);
 
     source_->AddVideoSink(sink_);
-    // source_->AddAudioSink(sink_);
+    source_->AddAudioSink(sink_);
     return true;
 }
 

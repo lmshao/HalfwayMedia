@@ -37,7 +37,7 @@ void EventProcessor::AddServiceFd(int fd, std::function<void(int)> callback)
     }
 
     mainReactor_->AddListeningFd(fd, callback);
-    LOGD("leave");
+    // LOGD("leave");
 }
 
 void EventProcessor::RemoveServiceFd(int fd)

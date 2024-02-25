@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 
     // rtspRecoderSession->SetSourceUrl("rtsp://192.168.1.83:8554/Luca-30s-720p.mkv");
     rtspRecoderSession->SetSourceUrl("rtsp://192.168.1.20:8554/Luca-30s-720p.mkv");
-    rtspRecoderSession->SetRecorderFileName("recorder");
+    rtspRecoderSession->SetRecorderFileName("recorder.mp4");
 
     if (!rtspRecoderSession->Init()) {
         printf("RTP session init failed");

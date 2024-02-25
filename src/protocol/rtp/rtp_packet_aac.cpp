@@ -3,8 +3,8 @@
 //
 
 #include "rtp_packet_aac.h"
-#include "../../common/log.h"
-#include "../aac/adts_header.h"
+#include "common/log.h"
+#include "protocol/aac/adts_header.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -59,6 +59,7 @@ void RtpDepacketizerAAC::DepacketizeInner(std::shared_ptr<DataBuffer> dataBuffer
     frame->audioInfo.channels = channels_;
     frame->audioInfo.nbSamples = nbSamples_;
     frame->audioInfo.sampleRate = sampleRate_;
+    frame->timestamp = rtp->GetTimestamp();
 
     int adtsLength = dataBuffer->Size() - 12 - 4;
     ADTSHeader header;

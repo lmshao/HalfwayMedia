@@ -48,7 +48,7 @@ void EventReactor::AddListeningFd(int fd, std::function<void(int)> callback)
         LOGE("epoll_ctl error: %s", strerror(errno));
         return;
     }
-    LOGD("epoll_ctl ok");
+    // LOGD("epoll_ctl ok");
 }
 
 void EventReactor::RemoveListeningFd(int fd)

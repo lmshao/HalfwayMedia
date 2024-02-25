@@ -4,7 +4,9 @@
 
 #include "media_frame_pipeline.h"
 #include "common/log.h"
+#include <cstdint>
 #include <mutex>
+#include <unordered_set>
 
 FrameSource::~FrameSource()
 {
@@ -91,18 +93,22 @@ void FrameSource::DeliverFrame(const std::shared_ptr<Frame> &frame)
 bool FrameSource::NotifySink(void *userdata)
 {
     bool result = true;
+    std::unordered_set<uint64_t> sinkIds;
     std::shared_lock<std::shared_mutex> lock(audioSinkMutex_);
     for (auto &item : audioSinks_) {
         auto sink = item.second.lock();
         if (sink) {
             result = sink->OnNotify(userdata) && result;
+            sinkIds.emplace(sink->Id());
         }
     }
 
     for (auto &item : videoSinks_) {
         auto sink = item.second.lock();
         if (sink) {
-            result = sink->OnNotify(userdata) && result;
+            if (sinkIds.find(sink->Id()) == sinkIds.end()) {
+                result = sink->OnNotify(userdata) && result;
+            }
         }
     }
 

@@ -5,8 +5,8 @@
 #ifndef HALFWAY_MEDIA_RAW_FILE_SINK_H
 #define HALFWAY_MEDIA_RAW_FILE_SINK_H
 
-#include "../../common/file_io.h"
-#include "../base/media_sink.h"
+#include "agent/base/media_sink.h"
+#include "common/file_io.h"
 #include <memory>
 #include <utility>
 

@@ -90,7 +90,7 @@ void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
         signal_.notify_one();
         return;
     }
-    LOGD("idle:%d, thread num: %zu/%d", idle_.load(), threads_.size(), threadsMax_);
+    // LOGD("idle:%d, thread num: %zu/%d", idle_.load(), threads_.size(), threadsMax_);
     if (threads_.size() < threadsMax_) {
         auto p = std::make_unique<std::thread>(&ThreadPool::Worker, this);
         std::string threadName = threadName_ + "-" + std::to_string(threads_.size());

@@ -1,6 +1,8 @@
 #include "media_file_sink.h"
 #include "common/log.h"
 #include "common/utils.h"
+#include <cstdint>
+#include <netinet/in.h>
 
 extern "C" {
 #include <libavcodec/packet.h>
@@ -15,6 +17,8 @@ MediaFileSink::~MediaFileSink()
 void MediaFileSink::OnFrame(const std::shared_ptr<Frame> &frame)
 {
     if (!avFmtCtx_) {
+        LOGE("avFmtCtx is nullptr");
+        exit(0);
         return;
     }
 
@@ -25,18 +29,30 @@ void MediaFileSink::OnFrame(const std::shared_ptr<Frame> &frame)
     av_packet_unref(avPacket_);
 
     if (frame->format == FRAME_FORMAT_H264) {
+        int nalLength = frame->Size() - 4;
+        LOGW("NALU size: %d", nalLength);
+        *(uint32_t *)frame->Data() = htonl(nalLength);
+
         avPacket_->stream_index = videoStream_->index;
         avPacket_->data = frame->Data();
         avPacket_->size = frame->Size();
-        avPacket_->pts = avPacket_->dts = frame->timestamp; // TODO: fix this av_gettime() / 1000000
+
+        LOGW("Video timestamp : %d", (int)(frame->timestamp / 90)); // ms /1000 * 90000 = rtp_ts
+
+        // avPacket_->pts = avPacket_->dts = frame->timestamp;
+        avPacket_->pts = avPacket_->dts = (av_gettime_relative() / 1000'000);
+
         avPacket_->duration = 90000 / 25;
         avPacket_->flags = frame->videoInfo.isKeyFrame ? AV_PKT_FLAG_KEY : 0;
         avPacket_->pos = -1;
     } else if (frame->format == FRAME_FORMAT_AAC) {
         avPacket_->stream_index = audioStream_->index;
-        avPacket_->data = frame->Data();
-        avPacket_->size = frame->Size();
-        avPacket_->pts = avPacket_->dts = frame->timestamp; // TODO: fix this
+        avPacket_->data = frame->Data() + 7;
+        avPacket_->size = frame->Size() - 7;
+        LOGE("Audio timestamp : %d", (int)(frame->timestamp / 48));
+        // avPacket_->pts = avPacket_->dts = frame->timestamp;
+        avPacket_->pts = avPacket_->dts = (av_gettime_relative() / 1000'000);
+
         avPacket_->duration = 1024;
         avPacket_->flags = 0;
         avPacket_->pos = -1;
@@ -44,7 +60,9 @@ void MediaFileSink::OnFrame(const std::shared_ptr<Frame> &frame)
         LOGW("Unsupport frame format");
     }
 
-    av_interleaved_write_frame(avFmtCtx_, avPacket_);
+    // if (av_interleaved_write_frame(avFmtCtx_, avPacket_) != 0) {
+    //     LOGE("av_interleaved_write_frame failed");
+    // }
 }
 
 bool MediaFileSink::Init()
@@ -82,12 +100,14 @@ bool MediaFileSink::Init()
             return false;
         }
 
+        LOGD("width: %d, height: %d", videoInfo_->width, videoInfo_->height);
         videoStream_->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
         videoStream_->codecpar->codec_id = AV_CODEC_ID_H264;
-        videoStream_->codecpar->width = 1280;
-        videoStream_->codecpar->height = 720;
+        videoStream_->codecpar->width = videoInfo_->width;
+        videoStream_->codecpar->height = videoInfo_->height;
         videoStream_->codecpar->format = AV_PIX_FMT_YUV420P;
-        videoStream_->codecpar->bit_rate = 1000000;
+        // videoStream_->codecpar->bit_rate = 1000000;
+        videoStream_->time_base = (AVRational){1, 90000};
     }
 
     if (audioInfo_) {
@@ -97,12 +117,14 @@ bool MediaFileSink::Init()
             return false;
         }
 
+        LOGD("sampleRate: %d, channels: %d", audioInfo_->sampleRate, audioInfo_->channels);
         audioStream_->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
         audioStream_->codecpar->codec_id = AV_CODEC_ID_AAC;
-        audioStream_->codecpar->sample_rate = 44100;
-        audioStream_->codecpar->ch_layout.nb_channels = 2;
+        audioStream_->codecpar->sample_rate = audioInfo_->sampleRate;
+        audioStream_->codecpar->ch_layout.nb_channels = audioInfo_->channels;
         audioStream_->codecpar->format = AV_SAMPLE_FMT_FLTP;
-        audioStream_->codecpar->bit_rate = 128000;
+        // audioStream_->codecpar->bit_rate = 128000;
+        audioStream_->time_base = (AVRational){1, (int)audioInfo_->sampleRate};
     }
 
     if (!(avFmtCtx_->flags & AVFMT_NOFILE)) {

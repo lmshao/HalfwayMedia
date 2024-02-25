@@ -1,7 +1,9 @@
 #include "rtsp_source.h"
-#include "../../common/log.h"
-#include "../../common/utils.h"
-#include "../../protocol/rtsp/rtsp_request.h"
+#include "agent/base/event_definition.h"
+#include "common/frame.h"
+#include "common/log.h"
+#include "common/utils.h"
+#include "protocol/rtsp/rtsp_request.h"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -344,6 +346,11 @@ bool RtspSource::SendRequestPlay()
         return false;
     }
 
+    if (!InitSinks()) {
+        LOGE("Init sinks failed.");
+        return false;
+    }
+
     RtspRequestPlay request(baseUrl_);
     request.SetCSeq(++cseq_);
     request.SetUserAgent(RTSP_USER_AGENT);
@@ -404,6 +411,43 @@ bool RtspSource::StartRtpServers()
     return true;
 }
 
+bool RtspSource::InitSinks()
+{
+    AgentEvent eventSetParams{EVENT_SINK_SET_PARAMETERS};
+    MediaParameters mediaParams{nullptr, nullptr};
+    eventSetParams.params = &mediaParams;
+    VideoFrameInfo videoInfo;
+    AudioFrameInfo audioInfo;
+
+    if (videoTrack_) {
+        LOGW("%d x %d", videoWidth_, videoHeight_);
+        videoInfo.width = videoWidth_;
+        videoInfo.height = videoHeight_;
+        mediaParams.video = &videoInfo;
+    }
+
+    if (audioTrack_) {
+        audioInfo.channels = audioChannels_;
+        audioInfo.sampleRate = audioSampleRate_;
+        audioInfo.nbSamples = 1024;
+        mediaParams.audio = &audioInfo;
+    }
+
+    if (!NotifySink(eventSetParams)) {
+        LOGE("init sink failed");
+        return false;
+    }
+
+    AgentEvent eventStart{EVENT_SINK_INIT, nullptr};
+
+    if (!NotifySink(eventStart)) {
+        LOGE("start sink failed");
+        return false;
+    }
+
+    return true;
+}
+
 void RtspSource::InitVideoDepacketizer()
 {
     if (!videoTrack_) {
@@ -412,7 +456,7 @@ void RtspSource::InitVideoDepacketizer()
 
     auto reso = videoTrack_->GetVideoSize();
     videoWidth_ = reso.first;
-    videoWidth_ = reso.second;
+    videoHeight_ = reso.second;
 
     auto sps = videoTrack_->GetVideoSps();
     auto pps = videoTrack_->GetVideoPps();
@@ -439,10 +483,12 @@ void RtspSource::InitVideoDepacketizer()
             }
 
             videoDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) {
-                if (frame->videoInfo.isKeyFrame && sps_ && pps_) {
-                    DeliverFrame(sps_);
-                    DeliverFrame(pps_);
-                }
+                // if (frame->videoInfo.isKeyFrame && sps_ && pps_) {
+                //     sps_->timestamp = frame->timestamp;
+                //     DeliverFrame(sps_);
+                //     pps_->timestamp = frame->timestamp;
+                //     DeliverFrame(pps_);
+                // }
 
                 frame->videoInfo.width = videoWidth_;
                 frame->videoInfo.height = videoHeight_;
@@ -461,9 +507,9 @@ void RtspSource::InitAudioDepacketizer()
         return;
     }
 
-    int pt, samplingRate, channels;
+    int pt;
     std::string format;
-    if (audioTrack_->GetAudioConfig(pt, format, samplingRate, channels)) {
+    if (audioTrack_->GetAudioConfig(pt, format, audioSampleRate_, audioChannels_)) {
         if (format == "MPEG4-GENERIC" || format == "mpeg4-generic") {
             audioDepacketizer_ = RtpDepacketizer::Create(FRAME_FORMAT_AAC);
             if (!audioDepacketizer_) {
@@ -471,7 +517,7 @@ void RtspSource::InitAudioDepacketizer()
                 return;
             }
 
-            AudioFrameInfo info{(uint8_t)channels, 1024, (uint32_t)samplingRate};
+            AudioFrameInfo info{(uint8_t)audioChannels_, 1024, (uint32_t)audioSampleRate_};
             audioDepacketizer_->SetExtraData(&info);
             audioDepacketizer_->SetCallback([this](std::shared_ptr<Frame> frame) { DeliverFrame(frame); });
         } else {

@@ -5,14 +5,14 @@
 #ifndef HALFWAY_MEDIA_RTSP_SOURCE_H
 #define HALFWAY_MEDIA_RTSP_SOURCE_H
 
-#include "../../common/frame.h"
-#include "../../network/tcp_client.h"
-#include "../../network/udp_server.h"
-#include "../../protocol/rtp/rtp_packet.h"
-#include "../../protocol/rtsp/rtsp_response.h"
-#include "../../protocol/rtsp/rtsp_sdp.h"
-#include "../../protocol/rtsp/rtsp_url.h"
-#include "../base/media_source.h"
+#include "agent/base/media_source.h"
+#include "common/frame.h"
+#include "network/tcp_client.h"
+#include "network/udp_server.h"
+#include "protocol/rtp/rtp_packet.h"
+#include "protocol/rtsp/rtsp_response.h"
+#include "protocol/rtsp/rtsp_sdp.h"
+#include "protocol/rtsp/rtsp_url.h"
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -68,6 +68,7 @@ private:
     void HandleResponsePlay(RtspResponse &response);
 
     bool StartRtpServers();
+    bool InitSinks();
 
     void InitVideoDepacketizer();
     void InitAudioDepacketizer();
@@ -103,7 +104,8 @@ private:
 
     std::shared_ptr<Frame> sps_;
     std::shared_ptr<Frame> pps_;
-    int videoWidth_, videoHeight_;
+    int videoWidth_ = 0, videoHeight_ = 0;
+    int audioSampleRate_ = 0, audioChannels_ = 0;
 };
 
 #endif // HALFWAY_MEDIA_RTSP_SOURCE_H
