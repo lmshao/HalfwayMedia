@@ -3,9 +3,10 @@
 //
 
 #include "thread_pool.h"
-#include "log.h"
+#include "common/log.h"
 #include <cstring>
 #include <string>
+#include <utility>
 
 ThreadPool::ThreadPool(int preAlloc, int threadsMax, std::string name) : threadsMax_(threadsMax)
 {
@@ -41,8 +42,31 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::Worker()
 {
+    std::string tag;
     while (running_) {
-        if (tasks_.empty()) {
+        if (!tag.empty()) {
+            if (tagTasks_.find(tag) != tagTasks_.end()) {
+                if (!tagTasks_.at(tag).empty()) {
+                    std::unique_lock<std::mutex> lock(taskMutex_);
+                    auto task = tagTasks_.at(tag).front();
+                    tagTasks_.at(tag).pop();
+                    lock.unlock();
+                    tag = task->tag;
+                    if (task) {
+                        auto fn = task->fn;
+                        if (fn) {
+                            fn((void *)task->data);
+                        }
+                    }
+                    continue;
+                } else {
+                    tagTasks_.erase(tag);
+                }
+            }
+        }
+
+        tag.clear();
+        while (tasks_.empty()) {
             std::unique_lock<std::mutex> taskLock(signalMutex_);
             idle_++;
             signal_.wait(taskLock);
@@ -50,10 +74,6 @@ void ThreadPool::Worker()
             if (!running_) {
                 return;
             }
-        }
-
-        if (tasks_.empty()) {
-            continue;
         }
 
         std::unique_lock<std::mutex> lock(taskMutex_);
@@ -65,6 +85,16 @@ void ThreadPool::Worker()
         tasks_.pop();
         lock.unlock();
 
+        if (!task->tag.empty() && tagTasks_.find(task->tag) != tagTasks_.end()) {
+            tagTasks_.at(task->tag).push(task);
+            continue;
+        }
+
+        tag = task->tag;
+        if (!tag.empty() && tagTasks_.find(tag) == tagTasks_.end()) {
+            tagTasks_.emplace(tag, std::queue<std::shared_ptr<TaskItem>>{});
+        }
+
         if (task) {
             auto fn = task->fn;
             if (fn) {
@@ -74,14 +104,29 @@ void ThreadPool::Worker()
     }
 }
 
+void ThreadPool::AddTask(const Task &task)
+{
+    AddTask(task, nullptr, 0, "");
+}
+
+void ThreadPool::AddTask(const Task &task, const std::string &serialTag)
+{
+    AddTask(task, nullptr, 0, serialTag);
+}
+
 void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
+{
+    AddTask(task, userData, dataSize, "");
+}
+
+void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize, const std::string &serialTag)
 {
     if (task == nullptr) {
         LOGE("task is nullptr");
         return;
     }
 
-    auto t = std::make_shared<TaskItem>(task, userData, dataSize);
+    auto t = std::make_shared<TaskItem>(task, userData, dataSize, serialTag);
     std::unique_lock<std::mutex> lock(taskMutex_);
     tasks_.push(t);
     lock.unlock();
@@ -90,7 +135,8 @@ void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
         signal_.notify_one();
         return;
     }
-    // LOGD("idle:%d, thread num: %zu/%d", idle_.load(), threads_.size(), threadsMax_);
+
+    LOGD("idle:%d, thread num: %zu/%d", idle_.load(), threads_.size(), threadsMax_);
     if (threads_.size() < threadsMax_) {
         auto p = std::make_unique<std::thread>(&ThreadPool::Worker, this);
         std::string threadName = threadName_ + "-" + std::to_string(threads_.size());
@@ -99,7 +145,8 @@ void ThreadPool::AddTask(const Task &task, void *userData, size_t dataSize)
     }
 }
 
-ThreadPool::TaskItem::TaskItem(Task task, void *userData, size_t dataSize) : fn(std::move(task))
+ThreadPool::TaskItem::TaskItem(Task task, void *userData, size_t dataSize, std::string serialTag)
+    : fn(std::move(task)), tag(std::move(serialTag))
 {
     if (userData) {
         size = dataSize;

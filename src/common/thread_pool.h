@@ -10,7 +10,9 @@
 #include <functional>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 
 constexpr int THREAD_NUM_MAX = 20;
@@ -24,16 +26,21 @@ public:
     ~ThreadPool();
 
     void Worker();
-    void AddTask(const Task &task, void *userData = nullptr, size_t dataSize = 0);
+
+    void AddTask(const Task &task);
+    void AddTask(const Task &task, const std::string &serialTag);
+    void AddTask(const Task &task, void *userData, size_t dataSize);
+    void AddTask(const Task &task, void *userData, size_t dataSize, const std::string &serialTag);
 
 private:
     struct TaskItem {
-        TaskItem(Task task, void *userData, size_t dataSize);
+        TaskItem(Task task, void *userData, size_t dataSize, std::string serialTag);
         ~TaskItem();
 
         Task fn;
         char *data = nullptr;
         size_t size = 0;
+        std::string tag;
     };
 
 private:
@@ -46,6 +53,7 @@ private:
 
     std::mutex taskMutex_;
     std::queue<std::shared_ptr<TaskItem>> tasks_;
+    std::unordered_map<std::string, std::queue<std::shared_ptr<TaskItem>>> tagTasks_;
     std::unordered_set<std::unique_ptr<std::thread>> threads_;
 };
 
