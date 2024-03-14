@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -124,15 +125,17 @@ void TcpServer::HandleAccept(int fd)
     sessions_.emplace(clientSocket, session);
 
     if (!listener_.expired()) {
-        callbackThreads_->AddTask([=](void *) {
-            LOGD("invoke OnAccept callback");
-            auto listener = listener_.lock();
-            if (listener) {
-                listener->OnAccept(sessions_[clientSocket]);
-            } else {
-                LOGE("not found listener!");
-            }
-        });
+        callbackThreads_->AddTask(
+            [=](void *) {
+                LOGD("invoke OnAccept callback");
+                auto listener = listener_.lock();
+                if (listener) {
+                    listener->OnAccept(sessions_[clientSocket]);
+                } else {
+                    LOGE("not found listener!");
+                }
+            },
+            std::to_string(fd));
     } else {
         LOGE("listener is null");
     }
@@ -150,12 +153,14 @@ void TcpServer::HandleReceive(int fd)
             if (!listener_.expired()) {
                 auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
                 dataBuffer->Assign(buffer, nbytes);
-                callbackThreads_->AddTask([=](void *) {
-                    auto listener = listener_.lock();
-                    if (listener) {
-                        listener->OnReceive(sessions_[fd], dataBuffer);
-                    }
-                });
+                callbackThreads_->AddTask(
+                    [=](void *) {
+                        auto listener = listener_.lock();
+                        if (listener) {
+                            listener->OnReceive(sessions_[fd], dataBuffer);
+                        }
+                    },
+                    std::to_string(fd));
             }
             continue;
         }
@@ -166,15 +171,17 @@ void TcpServer::HandleReceive(int fd)
             close(fd);
 
             if (!listener_.expired()) {
-                callbackThreads_->AddTask([=](void *) {
-                    auto listener = listener_.lock();
-                    if (listener) {
-                        listener->OnClose(sessions_[fd]);
-                        sessions_.erase(fd);
-                    } else {
-                        LOGE("not found listener!");
-                    }
-                });
+                callbackThreads_->AddTask(
+                    [=](void *) {
+                        auto listener = listener_.lock();
+                        if (listener) {
+                            listener->OnClose(sessions_[fd]);
+                            sessions_.erase(fd);
+                        } else {
+                            LOGE("not found listener!");
+                        }
+                    },
+                    std::to_string(fd));
             }
 
         } else {
@@ -188,15 +195,17 @@ void TcpServer::HandleReceive(int fd)
             close(fd);
 
             if (!listener_.expired()) {
-                callbackThreads_->AddTask([=](void *) {
-                    auto listener = listener_.lock();
-                    if (listener) {
-                        listener->OnError(sessions_[fd], info);
-                        sessions_.erase(fd);
-                    } else {
-                        LOGE("not found listener!");
-                    }
-                });
+                callbackThreads_->AddTask(
+                    [=](void *) {
+                        auto listener = listener_.lock();
+                        if (listener) {
+                            listener->OnError(sessions_[fd], info);
+                            sessions_.erase(fd);
+                        } else {
+                            LOGE("not found listener!");
+                        }
+                    },
+                    std::to_string(fd));
             }
         }
 

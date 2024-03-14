@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <cstdint>
 #include <fcntl.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -125,13 +126,15 @@ void UdpServer::HandleReceive(int fd)
             if (!listener_.expired()) {
                 auto dataBuffer = std::make_shared<DataBuffer>(nbytes);
                 dataBuffer->Assign(buffer, nbytes);
-                callbackThreads_->AddTask([=](void *) {
-                    auto listener = listener_.lock();
-                    if (listener) {
-                        listener->OnReceive(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()),
-                                            dataBuffer);
-                    }
-                });
+                callbackThreads_->AddTask(
+                    [=](void *) {
+                        auto listener = listener_.lock();
+                        if (listener) {
+                            listener->OnReceive(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()),
+                                                dataBuffer);
+                        }
+                    },
+                    host + std::to_string(port));
             }
             continue;
         }
@@ -143,15 +146,17 @@ void UdpServer::HandleReceive(int fd)
         std::string info = strerror(errno);
         LOGE("recvfrom() failed: %s", info.c_str());
         if (!listener_.expired()) {
-            callbackThreads_->AddTask([=](void *) {
-                auto listener = listener_.lock();
-                if (listener) {
-                    listener->OnError(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()), info);
-                    sessions_.erase(fd);
-                } else {
-                    LOGE("not found listener!");
-                }
-            });
+            callbackThreads_->AddTask(
+                [=](void *) {
+                    auto listener = listener_.lock();
+                    if (listener) {
+                        listener->OnError(std::make_shared<SessionImpl>(fd, host, port, shared_from_this()), info);
+                        sessions_.erase(fd);
+                    } else {
+                        LOGE("not found listener!");
+                    }
+                },
+                host + std::to_string(port));
         }
         break;
     }
