@@ -4,6 +4,14 @@
 
 系统要求： Linux / MacOS
 
+## 依赖更新
+
+Clone本仓库后，执行下面命令更新依赖仓库。
+
+```sh
+git submodule update --init --recursive
+```
+
 ## 环境配置
 
 ### libfdk_aac

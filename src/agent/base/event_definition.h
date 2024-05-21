@@ -5,8 +5,8 @@
 #ifndef HALFWAY_MEDIA_AGENT_EVENT_DEFINITION_H
 #define HALFWAY_MEDIA_AGENT_EVENT_DEFINITION_H
 
-#include "../../common/frame.h"
 #include <string>
+#include "common/frame.h"
 
 enum EventType {
     EVENT_SINK_START,

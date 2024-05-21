@@ -5,11 +5,11 @@
 #ifndef HALFWAY_MEDIA_RTP_SINK_H
 #define HALFWAY_MEDIA_RTP_SINK_H
 
-#include "../../network/udp_client.h"
-#include "../../protocol/rtp/rtp_packet.h"
-#include "../base/media_sink.h"
 #include <cstdint>
 #include <memory>
+#include "agent/base/media_sink.h"
+#include "network/include/udp_client.h"
+#include "protocol/rtp/rtp_packet.h"
 
 #define RtpSender RtpSink
 
@@ -44,8 +44,8 @@ private:
     std::string remoteIp_;
     uint16_t remoteVideoPort_ = 0;
     uint16_t remoteAudioPort_ = 0;
-    uint16_t localVideoPort_  = 0;
-    uint16_t localAudioPort_  = 0;
+    uint16_t localVideoPort_ = 0;
+    uint16_t localAudioPort_ = 0;
 
     std::unique_ptr<UdpClient> videoUdpClient_;
     std::unique_ptr<UdpClient> audioUdpClient_;

@@ -3,8 +3,8 @@
 //
 
 #include "rtp_sink.h"
-#include "../../common/log.h"
 #include <memory>
+#include "common/log.h"
 
 RtpSink::~RtpSink() {}
 
